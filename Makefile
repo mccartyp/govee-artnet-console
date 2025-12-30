@@ -30,12 +30,13 @@ help:
 # Install to /usr/local
 install:
 	@echo "Installing $(PACKAGE_NAME) to $(PREFIX)..."
-	@# Install Python package (use --prefix=/usr to install to /usr/local)
-	$(PIP) install --prefix=/usr .
-	@# Create symlink in /usr/local/bin if needed
-	@if [ ! -f "$(BINDIR)/$(PACKAGE_NAME)" ]; then \
-		ln -sf $(LIBDIR)/bin/$(PACKAGE_NAME) $(BINDIR)/$(PACKAGE_NAME) 2>/dev/null || true; \
+	@# Remove any existing broken symlinks
+	@if [ -L "$(BINDIR)/$(PACKAGE_NAME)" ] && [ ! -e "$(BINDIR)/$(PACKAGE_NAME)" ]; then \
+		rm -f "$(BINDIR)/$(PACKAGE_NAME)"; \
 	fi
+	@# Install Python package (use --prefix=/usr to install to /usr/local)
+	@# pip will automatically install the console script to /usr/local/bin
+	$(PIP) install --prefix=/usr .
 	@echo "Installation complete!"
 	@echo "Run: $(PACKAGE_NAME) --help"
 

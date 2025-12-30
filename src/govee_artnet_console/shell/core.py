@@ -263,6 +263,29 @@ class GoveeShell:
 
         self._connect()
 
+    def _save_json(self, file_path: Path, data: Any) -> None:
+        """
+        Save JSON data to file.
+
+        Args:
+            file_path: Path to save the JSON file
+            data: Data to serialize as JSON
+        """
+        save_json(file_path, data)
+
+    def _load_json(self, file_path: Path, default: Any) -> Any:
+        """
+        Load JSON data from file with fallback to default.
+
+        Args:
+            file_path: Path to the JSON file
+            default: Default value to return if file doesn't exist or can't be loaded
+
+        Returns:
+            Loaded JSON data or the default value
+        """
+        return load_json(file_path, default)
+
     def _resolve_bookmark(self, value: str) -> str:
         """
         Resolve bookmark reference to actual value.

@@ -79,7 +79,8 @@ class ConfigCommandHandler(CommandHandler):
             for name, value in self.shell.bookmarks.items():
                 table.add_row(name, value)
 
-            self.shell._append_output(table + "\n")
+            self.shell._append_output(table)
+            self.shell._append_output("\n")
 
         elif command == "delete" and len(args) >= 2:
             name = args[1]
@@ -144,7 +145,8 @@ class ConfigCommandHandler(CommandHandler):
             for name, value in self.shell.aliases.items():
                 table.add_row(name, value)
 
-            self.shell._append_output(table + "\n")
+            self.shell._append_output(table)
+            self.shell._append_output("\n")
 
         elif command == "delete" and len(args) >= 2:
             name = args[1]
@@ -189,7 +191,8 @@ class ConfigCommandHandler(CommandHandler):
             table.add_row("Cache Size", str(stats["size"]))
             table.add_row("TTL (seconds)", str(self.cache.default_ttl))
 
-            self.shell._append_output(table + "\n")
+            self.shell._append_output(table)
+            self.shell._append_output("\n")
 
         elif command == "clear":
             self.cache.clear()
@@ -378,7 +381,8 @@ class ConfigCommandHandler(CommandHandler):
             for name, data in sessions.items():
                 table.add_row(name, data["server_url"], data["output"])
 
-            self.shell._append_output(table + "\n")
+            self.shell._append_output(table)
+            self.shell._append_output("\n")
 
         elif command == "delete" and len(args) >= 2:
             name = args[1]

@@ -30,8 +30,8 @@ help:
 # Install to /usr/local
 install:
 	@echo "Installing $(PACKAGE_NAME) to $(PREFIX)..."
-	@# Install Python package
-	$(PIP) install --prefix=$(PREFIX) .
+	@# Install Python package (use --prefix=/usr to install to /usr/local)
+	$(PIP) install --prefix=/usr .
 	@# Create symlink in /usr/local/bin if needed
 	@if [ ! -f "$(BINDIR)/$(PACKAGE_NAME)" ]; then \
 		ln -sf $(LIBDIR)/bin/$(PACKAGE_NAME) $(BINDIR)/$(PACKAGE_NAME) 2>/dev/null || true; \

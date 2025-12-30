@@ -73,7 +73,7 @@ govee> logs --logger discovery   # Show logs from discovery subsystem
 
 - **Tab completion** - Press Tab to autocomplete commands
 - **History navigation** - Use ↑/↓ arrows to navigate command history
-- **Persistent history** - Command history saved to `~/.govee_artnet/shell_history`
+- **Persistent history** - Command history saved to `~/.govee_artnet_console/shell_history`
 - **Reverse search** - Press Ctrl+R to search command history
 
 ### 🔖 Bookmarks

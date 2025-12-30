@@ -113,7 +113,7 @@ class GoveeShell:
         self.help_formatter = HelpFormatter(self)
 
         # Set up command history and data directory
-        self.data_dir = Path.home() / ".govee_artnet"
+        self.data_dir = Path.home() / ".govee_artnet_console"
         self.data_dir.mkdir(exist_ok=True)
         history_file = self.data_dir / "shell_history"
         self.bookmarks_file = self.data_dir / "bookmarks.json"

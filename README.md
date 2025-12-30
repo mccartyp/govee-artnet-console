@@ -68,7 +68,7 @@ Once in the shell:
 govee> devices list                    # List all discovered devices
 govee> mappings create --device-id AA:BB:CC:DD:EE:FF:11:22 \
                         --universe 0 --template rgb --start-channel 1
-govee> monitoring dashboard            # View live system dashboard
+govee> monitor dashboard               # View live system dashboard
 govee> logs tail                       # Stream logs in real-time
 govee> help                            # Show all available commands
 ```
@@ -107,7 +107,7 @@ bookmarks:
 # Command aliases
 aliases:
   ls: "devices list"
-  status: "monitoring dashboard"
+  status: "monitor dashboard"
 ```
 
 ## Documentation
@@ -184,7 +184,7 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 
 ## Author
 
-mccartyp (mccartyp@gmail.com)
+Patrick McCarty (mccartyp@gmail.com)
 
 ## Related Projects
 

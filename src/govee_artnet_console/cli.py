@@ -83,7 +83,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "CLI for the Govee Artnet LAN bridge API. Launches interactive shell by default. "
             "Uses GOVEE_ARTNET_* env vars for defaults and prints JSON (default) or YAML. "
             "Examples: `govee-artnet` (start shell), `govee-artnet devices list`, "
-            "`govee-artnet mappings create --device-id <id> --universe 0 --start-channel 1 --template rgb`."
+            "`govee-artnet mappings create --device-id <id> --universe 0 --start-channel 1 --template RGB`."
         )
     )
     parser.add_argument(
@@ -417,7 +417,7 @@ def _add_mapping_commands(subparsers: argparse._SubParsersAction[argparse.Argume
         help="Create a mapping (POST /mappings; supports templates or manual ranges)",
         description=(
             "Creates mappings for a device. Template example: "
-            "`--device-id <id> --universe 0 --start-channel 1 --template rgbw` "
+            "`--device-id <id> --universe 0 --start-channel 1 --template RGB` "
             "expands to consecutive color fields. Manual example: "
             "`--channel 10 --length 3 --type range` for RGB. Prevents overlap unless "
             "--allow-overlap is set."
@@ -446,13 +446,13 @@ def _add_mapping_commands(subparsers: argparse._SubParsersAction[argparse.Argume
     create.add_argument(
         "--template",
         help=(
-            "Mapping template to expand (rgb, rgbw, brightness_rgb, master_only, "
-            "rgbwa, rgbaw). Requires --start-channel/--channel."
+            "Mapping template to expand (RGB, RGBCT, DimRGBCT, DimCT). "
+            "Requires --start-channel/--channel."
         ),
     )
     create.add_argument(
         "--field",
-        help="Payload field for discrete mappings (r, g, b, w, brightness). Required for discrete.",
+        help="Payload field for discrete mappings (power, dimmer, r/red, g/green, b/blue, ct/color_temp). Required for discrete.",
     )
     create.add_argument(
         "--allow-overlap",
@@ -482,7 +482,7 @@ def _add_mapping_commands(subparsers: argparse._SubParsersAction[argparse.Argume
     )
     update.add_argument(
         "--field",
-        help="Payload field for discrete mappings (r, g, b, w, brightness)",
+        help="Payload field for discrete mappings (power, dimmer, r/red, g/green, b/blue, ct/color_temp)",
     )
     update.add_argument("--allow-overlap", action="store_true", help="Allow overlapping ranges")
     update.add_argument(
@@ -1269,7 +1269,7 @@ def _validate_mapping_payload(payload: dict[str, Any], operation: str = "create"
 
     # Validate template if present
     if "template" in payload:
-        valid_templates = {"rgb", "rgbw", "brightness", "temperature"}
+        valid_templates = {"RGB", "RGBCT", "DimRGBCT", "DimCT"}
         template = payload["template"]
         if template not in valid_templates:
             raise CliError(

@@ -87,7 +87,7 @@ govee> bookmark list
 
 # Use bookmarks in commands
 govee> devices enable @kitchen
-govee> mappings create --device-id @bedroom --universe 0 --template rgb
+govee> mappings create --device-id @bedroom --universe 0 --template RGB
 ```
 
 **Bookmark commands:**

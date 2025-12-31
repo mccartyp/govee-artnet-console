@@ -67,7 +67,7 @@ Once in the shell:
 ```
 govee> devices list                    # List all discovered devices
 govee> mappings create --device-id AA:BB:CC:DD:EE:FF:11:22 \
-                        --universe 0 --template rgb --start-channel 1
+                        --universe 0 --template RGB --start-channel 1
 govee> monitor dashboard               # View live system dashboard
 govee> logs tail                       # Stream logs in real-time
 govee> help                            # Show all available commands

@@ -54,7 +54,7 @@ def get_completer_dict() -> dict:
                 '--channel': None,
                 '--length': None,
                 '--type': {'range': None, 'discrete': None},
-                '--field': {'power': None, 'dimmer': None, 'brightness': None, 'r': None, 'red': None, 'g': None, 'green': None, 'b': None, 'blue': None, 'ct': None, 'color_temp': None},
+                '--field': {'power': None, 'dimmer': None, 'r': None, 'red': None, 'g': None, 'green': None, 'b': None, 'blue': None, 'ct': None, 'color_temp': None},
                 '--allow-overlap': None,
                 '--help': None,
             },

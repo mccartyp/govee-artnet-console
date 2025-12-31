@@ -56,6 +56,7 @@ from .ui_components import (
 
 from .controllers import (
     ConnectionState,
+    EventsController,
     LogTailController,
     LogViewController,
     WatchController,
@@ -229,6 +230,21 @@ class GoveeShell:
         # Log view controller (will be initialized after app is created)
         self.log_view_controller: Optional[LogViewController] = None
 
+        # Create events buffer for real-time event streaming
+        self.events_buffer = Buffer(
+            read_only=True,
+            multiline=True,
+        )
+
+        # Events mode state
+        self.in_events_mode = False
+
+        # Events controller (will be initialized after app is created)
+        self.events_controller: Optional[EventsController] = None
+
+        # Command execution state flag (to prevent event notifications during command execution)
+        self.is_executing_command = False
+
         # Set up multi-level autocomplete with command structure
         completer = TrailingSpaceCompleter(get_completer_dict())
 
@@ -267,6 +283,14 @@ class GoveeShell:
         self.log_view_controller = LogViewController(
             app=self.app,
             log_view_buffer=self.log_view_buffer,
+            shell=self,
+        )
+
+        # Initialize events controller now that app is created
+        self.events_controller = EventsController(
+            app=self.app,
+            events_buffer=self.events_buffer,
+            server_url=config.server_url,
             shell=self,
         )
 
@@ -577,6 +601,53 @@ class GoveeShell:
         # Show exit message in normal output
         self._append_output("\n[dim]Exited log view mode[/]\n")
 
+    async def _enter_events_mode(self, event_type: Optional[str] = None) -> None:
+        """
+        Enter events mode and show real-time event stream.
+
+        Args:
+            event_type: Optional event type filter ("device", "mapping", "health")
+        """
+        if self.in_events_mode:
+            return
+
+        # Update event type filter if specified
+        if event_type and self.events_controller:
+            self.events_controller.event_type_filter = event_type
+
+        # Show entering message
+        enter_msg  = "\033[1;36m╔═══════════════════════════════════════════════════════════╗\033[0m\n"
+        enter_msg += "\033[1;36m║         Events Stream - Real-time Event Notifications     ║\033[0m\n"
+        enter_msg += "\033[1;36m╚═══════════════════════════════════════════════════════════╝\033[0m\n"
+        if event_type:
+            enter_msg += f"\033[33mEvent filter: {event_type}\033[0m\n"
+        enter_msg += "\033[2mStreaming events...\033[0m\n\n"
+
+        self.events_buffer.set_document(
+            Document(text=enter_msg, cursor_position=len(enter_msg)),
+            bypass_readonly=True
+        )
+
+        # Switch to events mode
+        self.in_events_mode = True
+        self.app.invalidate()
+
+        # Events controller is already running in background, just ensure follow-tail is enabled
+        if self.events_controller:
+            self.events_controller.enable_follow_tail()
+
+    async def _exit_events_mode(self) -> None:
+        """Exit events mode and return to normal shell view."""
+        if not self.in_events_mode:
+            return
+
+        # Switch back to normal mode
+        self.in_events_mode = False
+        self.app.invalidate()
+
+        # Show exit message in normal output
+        self._append_output("\n[dim]Exited events mode[/]\n")
+
     def _accept_input(self, buffer: Buffer) -> bool:
         """
         Handle command input when user presses Enter.
@@ -597,12 +668,18 @@ class GoveeShell:
             # Preprocess (aliases)
             line = self.precmd(line)
 
-            # Execute command
-            stop = self.onecmd(line)
+            # Set executing flag to prevent event notifications during command execution
+            self.is_executing_command = True
+            try:
+                # Execute command
+                stop = self.onecmd(line)
 
-            # Handle exit
-            if stop:
-                self.app.exit(result=True)
+                # Handle exit
+                if stop:
+                    self.app.exit(result=True)
+            finally:
+                # Clear executing flag
+                self.is_executing_command = False
 
         # Manually save to history and clear buffer
         # This ensures both operations happen in the correct order
@@ -1258,9 +1335,11 @@ class GoveeShell:
         """
         return stop
 
-    def postloop(self) -> None:
+    async def postloop(self) -> None:
         """Hook method executed once when cmdloop() is about to return."""
-        pass
+        # Stop events controller if running
+        if self.events_controller and self.events_controller.is_active:
+            await self.events_controller.stop()
 
     async def cmdloop(self, intro: Optional[str] = None) -> None:
         """
@@ -1300,11 +1379,15 @@ class GoveeShell:
         elif intro:
             self._append_output(f"[bold cyan]{intro}[/]\n\n")
 
+        # Start events controller for real-time event notifications
+        if self.events_controller:
+            await self.events_controller.start()
+
         # Run the application (async version)
         await self.app.run_async()
 
         # Cleanup
-        self.postloop()
+        await self.postloop()
 
 
 def run_shell(config: ClientConfig) -> None:

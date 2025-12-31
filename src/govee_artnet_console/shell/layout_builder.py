@@ -83,12 +83,22 @@ class LayoutBuilder:
             always_hide_cursor=True,
         )
 
+        self.shell.events_window = Window(
+            content=BufferControl(
+                buffer=self.shell.events_buffer,
+                lexer=ANSILexer(),
+                focusable=False,  # Keep focus on input for typing
+            ),
+            wrap_lines=False,
+            always_hide_cursor=True,
+        )
+
         # Build root container with all UI elements
         self.shell.root_container = HSplit([
-            # Conditionally show normal output, log tail, watch, or log view based on mode
+            # Conditionally show normal output, log tail, watch, log view, or events based on mode
             ConditionalContainer(
                 content=self.shell.normal_output_window,
-                filter=Condition(lambda: not self.shell.in_log_tail_mode and not self.shell.in_watch_mode and not self.shell.in_log_view_mode),
+                filter=Condition(lambda: not self.shell.in_log_tail_mode and not self.shell.in_watch_mode and not self.shell.in_log_view_mode and not self.shell.in_events_mode),
             ),
             ConditionalContainer(
                 content=self.shell.log_tail_window,
@@ -102,8 +112,12 @@ class LayoutBuilder:
                 content=self.shell.log_view_window,
                 filter=Condition(lambda: self.shell.in_log_view_mode),
             ),
+            ConditionalContainer(
+                content=self.shell.events_window,
+                filter=Condition(lambda: self.shell.in_events_mode),
+            ),
             Window(height=1, char='─'),
-            # Hide input in log tail, watch, or log view mode; show in normal mode
+            # Hide input in log tail, watch, log view, or events mode; show in normal mode
             ConditionalContainer(
                 content=Window(
                     content=BufferControl(
@@ -113,7 +127,7 @@ class LayoutBuilder:
                     height=1,
                     get_line_prefix=lambda line_number, wrap_count: f"{self.shell.prompt}",
                 ),
-                filter=Condition(lambda: not self.shell.in_log_tail_mode and not self.shell.in_watch_mode and not self.shell.in_log_view_mode),
+                filter=Condition(lambda: not self.shell.in_log_tail_mode and not self.shell.in_watch_mode and not self.shell.in_log_view_mode and not self.shell.in_events_mode),
             ),
             # Show log tail prompt in log tail mode
             ConditionalContainer(
@@ -144,6 +158,16 @@ class LayoutBuilder:
                     ),
                 ),
                 filter=Condition(lambda: self.shell.in_log_view_mode),
+            ),
+            # Show events prompt in events mode
+            ConditionalContainer(
+                content=Window(
+                    height=1,
+                    content=FormattedTextControl(
+                        text=lambda: "[Events Stream - Real-time event notifications | End: jump to bottom | f: filter by type | q/Esc: exit]"
+                    ),
+                ),
+                filter=Condition(lambda: self.shell.in_events_mode),
             ),
             Window(height=1, char='─'),
             Window(

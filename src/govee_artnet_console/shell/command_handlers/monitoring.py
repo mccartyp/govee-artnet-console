@@ -209,9 +209,10 @@ class MonitoringCommandHandler(CommandHandler):
 
     def do_logs(self, arg: str) -> None:
         """
-        View logs from the bridge.
+        View logs and events from the bridge.
         Usage: logs view [--level LEVEL] [--logger LOGGER]
                logs tail [--level LEVEL] [--logger LOGGER]
+               logs events [--type TYPE]
                logs search PATTERN [--regex] [--level LEVEL] [--logger LOGGER]
         Examples:
             logs view
@@ -220,6 +221,9 @@ class MonitoringCommandHandler(CommandHandler):
             logs view --level ERROR --logger govee.api
             logs tail
             logs tail --level ERROR
+            logs events
+            logs events --type device
+            logs events --type mapping
             logs search "device discovered"
             logs search "error.*timeout" --regex
             logs search "error" --level ERROR --logger govee.api
@@ -246,15 +250,21 @@ class MonitoringCommandHandler(CommandHandler):
                 self._logs_view(args[1:])
                 return
 
+            # Check if this is an events command
+            if args and args[0] == "events":
+                self._logs_events(args[1:])
+                return
+
             # Check if this is a search command
             if args and args[0] == "search":
                 self._logs_search(args[1:])
                 return
 
             # Default: show usage
-            self.shell._append_output("[yellow]Usage: logs view|tail|search[/]" + "\n")
+            self.shell._append_output("[yellow]Usage: logs view|tail|events|search[/]" + "\n")
             self.shell._append_output("[dim]Try 'logs view' for paginated log viewer[/]" + "\n")
             self.shell._append_output("[dim]Try 'logs tail' for real-time log streaming[/]" + "\n")
+            self.shell._append_output("[dim]Try 'logs events' for real-time event notifications[/]" + "\n")
             self.shell._append_output("[dim]Try 'logs search PATTERN' for searching logs[/]" + "\n")
 
         except Exception as exc:
@@ -347,11 +357,37 @@ class MonitoringCommandHandler(CommandHandler):
         # Enter log tail mode (async)
         asyncio.create_task(self.shell._enter_log_tail_mode(level=level_filter, logger=logger_filter))
 
+    def _logs_events(self, args: list[str]) -> None:
+        """
+        View real-time event stream.
+
+        Args:
+            args: Command arguments (filters)
+        """
+        # Parse filter
+        event_type_filter = None
+
+        i = 0
+        while i < len(args):
+            if args[i] == "--type" and i + 1 < len(args):
+                event_type_filter = args[i + 1].lower()
+                # Validate event type
+                if event_type_filter not in ("device", "mapping", "health"):
+                    self.shell._append_output(f"[yellow]Invalid event type: {event_type_filter}[/]\n")
+                    self.shell._append_output("[dim]Valid types: device, mapping, health[/]\n")
+                    return
+                i += 1
+            i += 1
+
+        # Enter events mode (async)
+        asyncio.create_task(self.shell._enter_events_mode(event_type=event_type_filter))
+
     def do_monitor(self, arg: str) -> None:
         """
         Real-time monitoring commands.
-        Usage: monitor dashboard
-               monitor stats
+        Usage: monitor dashboard - Show comprehensive dashboard with health and devices
+               monitor devices   - Show detailed device table
+               monitor stats     - Show system statistics
         """
         if not self.client:
             self.shell._append_output("[red]Not connected. Use 'connect' first.[/]" + "\n")
@@ -364,7 +400,7 @@ class MonitoringCommandHandler(CommandHandler):
 
         args = shlex.split(arg)
         if not args:
-            self.shell._append_output("[yellow]Usage: monitor dashboard|stats[/]" + "\n")
+            self.shell._append_output("[yellow]Usage: monitor dashboard|devices|stats[/]" + "\n")
             return
 
         command = args[0]
@@ -372,75 +408,313 @@ class MonitoringCommandHandler(CommandHandler):
         try:
             if command == "dashboard":
                 self._monitor_dashboard()
+            elif command == "devices":
+                self._monitor_devices()
             elif command == "stats":
                 self._monitor_stats()
             else:
                 self.shell._append_output(f"[red]Unknown monitor command: {command}[/]" + "\n")
-                self.shell._append_output("[yellow]Try: monitor dashboard, monitor stats[/]" + "\n")
+                self.shell._append_output("[yellow]Try: monitor dashboard, monitor devices, monitor stats[/]" + "\n")
         except Exception as exc:
             self.shell._handle_error(exc, "monitor")
 
     def _monitor_dashboard(self) -> None:
-        """Display live dashboard with system status using rich formatting."""
+        """Display comprehensive dashboard with health, devices, and statistics."""
         try:
-            # Get health and status
+            # Fetch data in parallel
             self.shell._append_output("[bold cyan]Fetching dashboard data...[/]\n")
             health_data = _handle_response(self.client.get("/health"))
-            status_data = _handle_response(self.client.get("/status"))
+            devices_data = _handle_response(self.client.get("/devices"))
+            mappings_data = _handle_response(self.client.get("/mappings"))
 
-            # Overall status
-            overall_status = health_data.get("status", "unknown")
-            status_style = "bold green" if overall_status == "ok" else "bold red"
-            status_indicator = "✓" if overall_status == "ok" else "✗"
+            # Calculate statistics
+            total_devices = len(devices_data) if isinstance(devices_data, list) else 0
+            online_devices = sum(1 for d in devices_data if not d.get("offline")) if isinstance(devices_data, list) else 0
+            offline_devices = sum(1 for d in devices_data if d.get("offline")) if isinstance(devices_data, list) else 0
+            total_mappings = len(mappings_data) if isinstance(mappings_data, list) else 0
 
             # Create header
             self.shell._append_output("\n")
-            self.shell._append_output("[bold cyan]" + "═" * 60 + "[/]\n")
-            self.shell._append_output("[bold cyan]Govee ArtNet Bridge - Dashboard[/]\n")
-            self.shell._append_output("[bold cyan]" + "═" * 60 + "[/]\n")
-            self.shell._append_output(f"Status: [{status_style}]{status_indicator} {overall_status.upper()}[/]" + "\n")
-            self.shell._append_output("\n")
+            self.shell._append_output("[bold cyan]┌─ Govee ArtNet Bridge Dashboard " + "─" * 30 + "┐[/]\n")
 
-            # Devices table
-            devices_table = Table(title=Text("Devices", justify="center"), show_header=True, header_style="bold magenta", box=box.ROUNDED)
-            devices_table.add_column("Type", style="cyan")
-            devices_table.add_column("Count", justify="right", style="yellow")
+            # Statistics Summary Cards using ANSI box drawing
+            stats_line = "│  "
+            stats_line += f"[cyan]┌─────────┐[/]  [green]┌─────────┐[/]  [red]┌─────────┐[/]  [blue]┌─────────┐[/]"
+            stats_line += "  │"
+            self.shell._append_output(stats_line + "\n")
 
-            discovered_count = status_data.get("discovered_count", 0)
-            manual_count = status_data.get("manual_count", 0)
-            active_count = status_data.get("active_count", 0)
-            devices_table.add_row("Active", str(active_count))
-            devices_table.add_row("Discovered", str(discovered_count))
-            devices_table.add_row("Manual", str(manual_count))
-            devices_table.add_row("[bold]Total[/]", f"[bold]{discovered_count + manual_count}[/]")
+            stats_line = "│  "
+            stats_line += f"[cyan]│ Devices │[/]  [green]│ Online  │[/]  [red]│ Offline │[/]  [blue]│ Map'ngs │[/]"
+            stats_line += "  │"
+            self.shell._append_output(stats_line + "\n")
 
-            self.shell._append_output(devices_table)
-            self.shell._append_output("\n\n")
+            stats_line = "│  "
+            stats_line += f"[cyan]│   {total_devices:3d}   │[/]  [green]│   {online_devices:3d}   │[/]  [red]│   {offline_devices:3d}   │[/]  [blue]│   {total_mappings:3d}   │[/]"
+            stats_line += "  │"
+            self.shell._append_output(stats_line + "\n")
 
-            # Queue info
-            queue_depth = status_data.get("queue_depth", 0)
-            queue_style = "green" if queue_depth < 100 else "yellow" if queue_depth < 500 else "red"
-            self.shell._append_output(f"Message Queue Depth: [{queue_style}]{queue_depth}[/]" + "\n")
-            self.shell._append_output("\n")
+            stats_line = "│  "
+            stats_line += f"[cyan]└─────────┘[/]  [green]└─────────┘[/]  [red]└─────────┘[/]  [blue]└─────────┘[/]"
+            stats_line += "  │"
+            self.shell._append_output(stats_line + "\n")
 
-            # Subsystems table
+            self.shell._append_output("[bold cyan]├" + "─" * 64 + "┤[/]\n")
+
+            # System Health Section
             subsystems = health_data.get("subsystems", {})
             if subsystems:
-                subsystems_table = Table(title=Text("Subsystems", justify="center"), show_header=True, header_style="bold magenta", box=box.ROUNDED)
-                subsystems_table.add_column("Name", style="cyan")
-                subsystems_table.add_column("Status", style="green")
+                self.shell._append_output("│ [bold]System Health[/]" + " " * 49 + "│\n")
 
-                for name, data in subsystems.items():
-                    sub_status = data.get("status", "unknown")
-                    indicator = "✓" if sub_status == "ok" else "✗"
-                    status_style = "green" if sub_status == "ok" else "red"
-                    subsystems_table.add_row(name, f"[{status_style}]{indicator} {sub_status}[/]")
+                # Display subsystems in a compact grid format
+                subsystem_names = list(subsystems.keys())
+                for i in range(0, len(subsystem_names), 2):
+                    line = "│  "
 
-                self.shell._append_output(subsystems_table)
-                self.shell._append_output("\n\n")
+                    # First subsystem in pair
+                    name = subsystem_names[i]
+                    data = subsystems[name]
+                    status = data.get("status", "unknown")
+
+                    if status == "ok":
+                        icon = "🟢"
+                        style = "green"
+                    elif status == "degraded":
+                        icon = "🟡"
+                        style = "yellow"
+                    elif status == "suppressed":
+                        icon = "🔴"
+                        style = "red"
+                    elif status == "recovering":
+                        icon = "🔵"
+                        style = "cyan"
+                    else:
+                        icon = "⚪"
+                        style = "white"
+
+                    line += f"{icon} [{style}]{name.capitalize():12s} {status.upper():10s}[/]"
+
+                    # Second subsystem in pair (if exists)
+                    if i + 1 < len(subsystem_names):
+                        name = subsystem_names[i + 1]
+                        data = subsystems[name]
+                        status = data.get("status", "unknown")
+
+                        if status == "ok":
+                            icon = "🟢"
+                            style = "green"
+                        elif status == "degraded":
+                            icon = "🟡"
+                            style = "yellow"
+                        elif status == "suppressed":
+                            icon = "🔴"
+                            style = "red"
+                        elif status == "recovering":
+                            icon = "🔵"
+                            style = "cyan"
+                        else:
+                            icon = "⚪"
+                            style = "white"
+
+                        line += f"  {icon} [{style}]{name.capitalize():12s} {status.upper():10s}[/]"
+
+                    line += " │"
+                    self.shell._append_output(line + "\n")
+
+                self.shell._append_output("[bold cyan]├" + "─" * 64 + "┤[/]\n")
+
+            # Device Table
+            if isinstance(devices_data, list) and devices_data:
+                self.shell._append_output("│ [bold]Devices[/]" + " " * 55 + "│\n")
+
+                # Create devices table with Rich
+                devices_table = Table(
+                    show_header=True,
+                    header_style="bold magenta",
+                    box=box.SIMPLE,
+                    padding=(0, 1),
+                )
+                devices_table.add_column("ID", style="cyan", no_wrap=True, width=17)
+                devices_table.add_column("Status", justify="center", width=6)
+                devices_table.add_column("IP", style="dim", width=15)
+                devices_table.add_column("Model", style="yellow", width=6)
+                devices_table.add_column("Name", style="green", width=20)
+                devices_table.add_column("Last Seen", style="dim", width=10)
+                devices_table.add_column("Maps", justify="right", width=4)
+
+                # Sort devices: online first, then by ID
+                sorted_devices = sorted(devices_data, key=lambda d: (d.get("offline", False), d.get("id", "")))
+
+                # Show up to 10 devices
+                for device in sorted_devices[:10]:
+                    device_id = device.get("id", "unknown")
+                    offline = device.get("offline", False)
+                    stale = device.get("stale", False)
+                    ip = device.get("ip", "")
+                    model = device.get("model_number", "")
+                    name = device.get("description", "")
+                    last_seen = device.get("last_seen", "")
+                    mapping_count = device.get("mapping_count", 0)
+
+                    # Status indicator
+                    if offline:
+                        status = "[red]🔴 Off[/]"
+                    elif stale:
+                        status = "[dim]⚪ Stale[/]"
+                    else:
+                        status = "[green]🟢 On[/]"
+
+                    # Format last seen as relative time
+                    last_seen_str = ""
+                    if last_seen:
+                        try:
+                            from datetime import datetime, timezone
+                            dt = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
+                            now = datetime.now(timezone.utc)
+                            delta = now - dt
+                            if delta.total_seconds() < 60:
+                                last_seen_str = f"{int(delta.total_seconds())}s ago"
+                            elif delta.total_seconds() < 3600:
+                                last_seen_str = f"{int(delta.total_seconds() / 60)}m ago"
+                            elif delta.total_seconds() < 86400:
+                                last_seen_str = f"{int(delta.total_seconds() / 3600)}h ago"
+                            else:
+                                last_seen_str = f"{int(delta.total_seconds() / 86400)}d ago"
+                        except Exception:
+                            last_seen_str = "unknown"
+
+                    # Truncate long names
+                    if len(name) > 20:
+                        name = name[:17] + "..."
+
+                    # Truncate device ID for display
+                    display_id = device_id
+                    if len(display_id) > 17:
+                        display_id = display_id[:14] + "..."
+
+                    devices_table.add_row(
+                        display_id,
+                        status,
+                        ip or "-",
+                        model or "-",
+                        name or "-",
+                        last_seen_str or "-",
+                        str(mapping_count),
+                    )
+
+                if len(sorted_devices) > 10:
+                    devices_table.add_row(
+                        f"[dim]... and {len(sorted_devices) - 10} more[/]",
+                        "", "", "", "", "", ""
+                    )
+
+                self.shell._append_output(devices_table)
+                self.shell._append_output("\n")
+
+            self.shell._append_output("[bold cyan]└" + "─" * 64 + "┘[/]\n")
+            self.shell._append_output("\n")
 
         except Exception as exc:
-            self.shell._append_output(f"[bold red]Error fetching dashboard:[/] {exc}" + "\n")
+            self.shell._append_output(f"[bold red]Error fetching dashboard:[/] {exc}\n")
+
+    def _monitor_devices(self) -> None:
+        """Display detailed device table with all discovered devices."""
+        try:
+            self.shell._append_output("[bold cyan]Fetching device data...[/]\n")
+            devices_data = _handle_response(self.client.get("/devices"))
+
+            if not isinstance(devices_data, list):
+                self.shell._append_output("[yellow]No devices found.[/]\n")
+                return
+
+            if not devices_data:
+                self.shell._append_output("[yellow]No devices discovered yet.[/]\n")
+                return
+
+            # Create header
+            self.shell._append_output("\n")
+            self.shell._append_output("[bold cyan]" + "═" * 80 + "[/]\n")
+            self.shell._append_output("[bold cyan]Devices Monitor[/]\n")
+            self.shell._append_output("[bold cyan]" + "═" * 80 + "[/]\n\n")
+
+            # Create detailed devices table
+            devices_table = Table(
+                show_header=True,
+                header_style="bold magenta",
+                box=box.ROUNDED,
+                padding=(0, 1),
+            )
+            devices_table.add_column("Device ID", style="cyan", no_wrap=True)
+            devices_table.add_column("Status", justify="center", width=8)
+            devices_table.add_column("IP Address", style="dim")
+            devices_table.add_column("Model", style="yellow", width=7)
+            devices_table.add_column("Name", style="green")
+            devices_table.add_column("Last Seen", style="dim", width=12)
+            devices_table.add_column("Mappings", justify="right", width=8)
+
+            # Sort devices: online first, then by ID
+            sorted_devices = sorted(devices_data, key=lambda d: (d.get("offline", False), d.get("id", "")))
+
+            for device in sorted_devices:
+                device_id = device.get("id", "unknown")
+                offline = device.get("offline", False)
+                stale = device.get("stale", False)
+                ip = device.get("ip", "")
+                model = device.get("model_number", "")
+                name = device.get("description", "")
+                last_seen = device.get("last_seen", "")
+                mapping_count = device.get("mapping_count", 0)
+
+                # Status indicator with emoji
+                if offline:
+                    status = "[red]🔴 Offline[/]"
+                elif stale:
+                    status = "[dim]⚪ Stale[/]"
+                else:
+                    status = "[green]🟢 Online[/]"
+
+                # Format last seen as relative time
+                last_seen_str = ""
+                if last_seen:
+                    try:
+                        from datetime import datetime, timezone
+                        dt = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
+                        now = datetime.now(timezone.utc)
+                        delta = now - dt
+                        if delta.total_seconds() < 60:
+                            last_seen_str = f"{int(delta.total_seconds())}s ago"
+                        elif delta.total_seconds() < 3600:
+                            last_seen_str = f"{int(delta.total_seconds() / 60)}m ago"
+                        elif delta.total_seconds() < 86400:
+                            last_seen_str = f"{int(delta.total_seconds() / 3600)}h ago"
+                        else:
+                            last_seen_str = f"{int(delta.total_seconds() / 86400)}d ago"
+                    except Exception:
+                        last_seen_str = "unknown"
+
+                devices_table.add_row(
+                    device_id,
+                    status,
+                    ip or "-",
+                    model or "-",
+                    name or "-",
+                    last_seen_str or "-",
+                    str(mapping_count),
+                )
+
+            self.shell._append_output(devices_table)
+            self.shell._append_output("\n")
+
+            # Summary
+            total = len(sorted_devices)
+            online = sum(1 for d in sorted_devices if not d.get("offline"))
+            offline_count = sum(1 for d in sorted_devices if d.get("offline"))
+
+            self.shell._append_output(f"[dim]Total: {total} devices | ")
+            self.shell._append_output(f"[green]{online} online[/] | ")
+            self.shell._append_output(f"[red]{offline_count} offline[/]\n\n")
+
+        except Exception as exc:
+            self.shell._append_output(f"[bold red]Error fetching devices:[/] {exc}\n")
 
     def _monitor_stats(self) -> None:
         """Display system statistics."""

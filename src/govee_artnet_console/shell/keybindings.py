@@ -278,4 +278,37 @@ class KeyBindingManager:
                         self.shell.log_view_controller.modal_add_char(event.data)
                         asyncio.create_task(self.shell.log_view_controller._render())
 
+        # Events mode keybindings
+        @kb.add('escape', filter=Condition(lambda: self.shell.in_events_mode))
+        def _(event):
+            """Handle Escape in events mode - exit to normal view."""
+            asyncio.create_task(self.shell._exit_events_mode())
+
+        @kb.add('q', filter=Condition(lambda: self.shell.in_events_mode))
+        def _(event):
+            """Handle 'q' in events mode - exit to normal view."""
+            asyncio.create_task(self.shell._exit_events_mode())
+
+        @kb.add('end', filter=Condition(lambda: self.shell.in_events_mode))
+        def _(event):
+            """Handle End in events mode - jump to bottom and enable follow-tail."""
+            if self.shell.events_controller:
+                self.shell.events_controller.enable_follow_tail()
+                event.app.invalidate()
+
+        @kb.add('f', filter=Condition(lambda: self.shell.in_events_mode))
+        def _(event):
+            """Handle 'f' in events mode - show filter info."""
+            # For now, show current filter status as a message in the buffer
+            if self.shell.events_controller:
+                current_filter = self.shell.events_controller.event_type_filter or "None"
+                filter_msg = f"\033[33m[Current filter: {current_filter} | Use 'logs events --type device|mapping|health' to set filters]\033[0m\n"
+                # Append to events buffer
+                current_text = self.shell.events_buffer.text
+                self.shell.events_buffer.set_document(
+                    Document(text=current_text + filter_msg, cursor_position=len(current_text + filter_msg)),
+                    bypass_readonly=True
+                )
+                event.app.invalidate()
+
         return kb

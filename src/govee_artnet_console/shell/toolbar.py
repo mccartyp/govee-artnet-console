@@ -153,9 +153,22 @@ class ToolbarManager:
         # Line 1: Connection + devices
         line1: list[tuple[str, str]] = []
         if self.shell.client:
-            line1.append((S("status-connected"), "● Connected"))
+            line1.append((S("status-connected"), "● API Connected"))
         else:
-            line1.append((S("status-disconnected"), "○ Disconnected"))
+            line1.append((S("status-disconnected"), "○ API Disconnected"))
+
+        # Add Events WebSocket status
+        if self.shell.events_controller:
+            line1.append((S("toolbar-info"), " | Events: "))
+            events_state = self.shell.events_controller.state
+            if events_state == ConnectionState.CONNECTED:
+                line1.append((S("status-connected"), "● Connected"))
+            elif events_state == ConnectionState.CONNECTING:
+                line1.append((S("toolbar-info"), "○ Connecting"))
+            elif events_state == ConnectionState.RECONNECTING:
+                line1.append((S("status-degraded"), "◐ Reconnecting"))
+            else:
+                line1.append((S("status-disconnected"), "○ Disconnected"))
 
         line1.extend([
             (S("toolbar-info"), " │ Devices: "),

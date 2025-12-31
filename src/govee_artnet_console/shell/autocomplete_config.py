@@ -71,13 +71,20 @@ def get_completer_dict() -> dict:
                 '--level': {'DEBUG': None, 'INFO': None, 'WARNING': None, 'ERROR': None, 'CRITICAL': None},
                 '--logger': None,
             },
+            'events': {
+                '--type': {'device': None, 'mapping': None, 'health': None},
+            },
             'search': {
                 '--regex': None,
                 '--level': {'DEBUG': None, 'INFO': None, 'WARNING': None, 'ERROR': None, 'CRITICAL': None},
                 '--logger': None,
             },
         },
-        'monitor': {'status': None, 'dashboard': None},
+        'monitor': {
+            'dashboard': None,
+            'devices': None,
+            'stats': None,
+        },
         'output': {'json': None, 'table': None, 'yaml': None},
         'bookmark': {'add': None, 'list': None, 'delete': None, 'use': None},
         'alias': {'add': None, 'list': None, 'delete': None, 'clear': None},

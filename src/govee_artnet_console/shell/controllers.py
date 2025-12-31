@@ -383,6 +383,545 @@ class LogTailController:
             pass
 
 
+class EventsController:
+    """
+    Controller for real-time event streaming via WebSocket.
+
+    Features:
+    - Async WebSocket connection management
+    - Automatic reconnection with exponential backoff
+    - Ping/pong keepalive handling (30s interval)
+    - Dual output: console notifications + events buffer
+    - Event filtering by type
+    - Batched UI updates for performance
+    """
+
+    # Performance tuning
+    MAX_BUFFER_CHARS = 500_000  # ~500KB of event text
+    BATCH_INTERVAL = 0.1  # 100ms batching interval
+    MAX_RECONNECT_DELAY = 10.0  # Max backoff delay
+
+    def __init__(self, app: Application, events_buffer: Buffer, server_url: str, shell: GoveeShell):
+        """
+        Initialize the events controller.
+
+        Args:
+            app: The prompt_toolkit Application instance
+            events_buffer: Buffer to append event lines to (for logs events view)
+            server_url: Base HTTP server URL (will be converted to WebSocket)
+            shell: Reference to GoveeShell for console notifications
+        """
+        self.app = app
+        self.events_buffer = events_buffer
+        self.server_url = server_url
+        self.shell = shell
+
+        # Connection state
+        self.state = ConnectionState.DISCONNECTED
+        self.websocket: Optional[websockets.WebSocketClientProtocol] = None
+        self.ws_task: Optional[asyncio.Task] = None
+        self.batch_task: Optional[asyncio.Task] = None
+
+        # Filter state (for logs events view)
+        self.event_type_filter: Optional[str] = None
+
+        # Follow-tail mode (auto-scroll to newest)
+        self.follow_tail = True
+
+        # Pending event lines for batched updates
+        self._pending_lines: deque[str] = deque()
+        self._lock = asyncio.Lock()
+
+        # Reconnection state
+        self._reconnect_delay = 1.0
+        self._should_reconnect = True
+
+        # Device cache for enriching notifications
+        self._device_cache: dict[str, dict] = {}
+
+    @property
+    def is_active(self) -> bool:
+        """Check if event streaming is currently active."""
+        return self.ws_task is not None and not self.ws_task.done()
+
+    @property
+    def ws_url(self) -> str:
+        """Get the WebSocket URL for event streaming."""
+        url = self.server_url.replace("http://", "ws://").replace("https://", "wss://")
+        return f"{url}/events/stream"
+
+    async def start(self, event_type: Optional[str] = None) -> None:
+        """
+        Start event streaming with optional filter.
+
+        Args:
+            event_type: Event type filter (e.g., "device", "mapping", "health")
+        """
+        if self.is_active:
+            return
+
+        self.event_type_filter = event_type
+        self._should_reconnect = True
+        self._reconnect_delay = 1.0
+
+        # Start WebSocket connection task
+        self.ws_task = asyncio.create_task(self._ws_loop())
+
+        # Start UI batch update task
+        self.batch_task = asyncio.create_task(self._batch_update_loop())
+
+    async def stop(self) -> None:
+        """Stop event streaming and close WebSocket connection."""
+        self._should_reconnect = False
+
+        # Cancel tasks
+        if self.ws_task and not self.ws_task.done():
+            self.ws_task.cancel()
+            try:
+                await self.ws_task
+            except asyncio.CancelledError:
+                pass
+
+        if self.batch_task and not self.batch_task.done():
+            self.batch_task.cancel()
+            try:
+                await self.batch_task
+            except asyncio.CancelledError:
+                pass
+
+        # Close WebSocket
+        if self.websocket:
+            await self.websocket.close()
+            self.websocket = None
+
+        self.state = ConnectionState.DISCONNECTED
+        self.ws_task = None
+        self.batch_task = None
+
+    def append_event_line(self, line: str) -> None:
+        """
+        Append an event line to the pending queue for batched UI update.
+
+        Args:
+            line: Formatted event line to append
+        """
+        self._pending_lines.append(line)
+
+    def toggle_follow_tail(self) -> bool:
+        """
+        Toggle follow-tail mode.
+
+        Returns:
+            New follow_tail state
+        """
+        self.follow_tail = not self.follow_tail
+        if self.follow_tail:
+            # Jump to bottom
+            self.events_buffer.cursor_position = len(self.events_buffer.text)
+        return self.follow_tail
+
+    def enable_follow_tail(self) -> None:
+        """Enable follow-tail mode and jump to bottom."""
+        self.follow_tail = True
+        self.events_buffer.cursor_position = len(self.events_buffer.text)
+
+    def _update_device_cache(self, device_id: str, data: dict) -> None:
+        """Update the device cache with new data."""
+        if device_id not in self._device_cache:
+            self._device_cache[device_id] = {}
+        self._device_cache[device_id].update(data)
+
+    def _get_device_info(self, device_id: str) -> tuple[Optional[str], Optional[str]]:
+        """
+        Get device name and IP from cache.
+
+        Returns:
+            Tuple of (name, ip)
+        """
+        device = self._device_cache.get(device_id, {})
+        name = device.get("description") or device.get("model")
+        ip = device.get("ip")
+        return name, ip
+
+    def _format_event_for_console(self, event_type: str, data: dict) -> Optional[str]:
+        """
+        Format event as terse console notification with colored bubble.
+
+        Args:
+            event_type: Event type (e.g., "device_discovered")
+            data: Event data payload
+
+        Returns:
+            Formatted notification string or None if not for console
+        """
+        if event_type == "device_discovered":
+            device_id = data.get("device_id", "unknown")
+            ip = data.get("ip", "")
+            name = data.get("description") or data.get("model", "")
+
+            # Update cache
+            self._update_device_cache(device_id, data)
+
+            # Format: 🔵 *** Device Discovered: AA:BB:CC (Name) at 192.168.1.100
+            name_part = f" ({name})" if name else ""
+            return f"🔵 [cyan]*** Device Discovered:[/] {device_id}{name_part} at {ip}\n"
+
+        elif event_type == "device_online":
+            device_id = data.get("device_id", "unknown")
+            name, ip = self._get_device_info(device_id)
+
+            # Format: 🟢 *** Device Online: AA:BB:CC (Name) at 192.168.1.100
+            name_part = f" ({name})" if name else ""
+            ip_part = f" at {ip}" if ip else ""
+            return f"🟢 [green]*** Device Online:[/] {device_id}{name_part}{ip_part}\n"
+
+        elif event_type == "device_offline":
+            device_id = data.get("device_id", "unknown")
+            reason = data.get("reason", "unknown")
+            name, ip = self._get_device_info(device_id)
+
+            # Format: 🔴 *** Device Offline: AA:BB:CC (Name) at 192.168.1.100 (reason)
+            name_part = f" ({name})" if name else ""
+            ip_part = f" at {ip}" if ip else ""
+            return f"🔴 [red]*** Device Offline:[/] {device_id}{name_part}{ip_part} ({reason})\n"
+
+        elif event_type == "device_updated":
+            device_id = data.get("device_id", "unknown")
+            changed_fields = data.get("changed_fields", [])
+
+            # Only show significant updates, suppress verbose changes
+            if not changed_fields or set(changed_fields).issubset({"last_seen", "poll_state", "poll_state_updated_at"}):
+                return None
+
+            fields_str = ", ".join(changed_fields)
+            return f"🔵 [cyan]*** Device Updated:[/] {device_id} - {fields_str}\n"
+
+        elif event_type == "mapping_created":
+            mapping_id = data.get("mapping_id", "?")
+            universe = data.get("universe", "?")
+            channel = data.get("channel", "?")
+            device_id = data.get("device_id", "")
+
+            # Try to get device info from cache if device_id provided
+            device_part = ""
+            if device_id:
+                name, ip = self._get_device_info(device_id)
+                ip_part = f" ({ip})" if ip else ""
+                device_part = f" → Device {device_id}{ip_part}"
+
+            # Format: ⚙️  *** Mapping Created: Universe 0, Channel 1 → Device AA:BB:CC (192.168.1.100)
+            return f"⚙️  [blue]*** Mapping Created:[/] Universe {universe}, Channel {channel}{device_part}\n"
+
+        elif event_type == "mapping_deleted":
+            mapping_id = data.get("mapping_id", "?")
+            return f"⚙️  [yellow]*** Mapping Deleted:[/] ID {mapping_id}\n"
+
+        elif event_type == "mapping_updated":
+            mapping_id = data.get("mapping_id", "?")
+            changed_fields = data.get("changed_fields", [])
+            fields_str = ", ".join(changed_fields) if changed_fields else "configuration"
+            return f"⚙️  [blue]*** Mapping Updated:[/] ID {mapping_id} - {fields_str}\n"
+
+        elif event_type == "health_status_changed":
+            subsystem = data.get("subsystem", "unknown")
+            status = data.get("status", "unknown")
+            previous = data.get("previous_status", "")
+
+            # Choose color based on status
+            if status == "ok":
+                color = "green"
+                icon = "🟢"
+            elif status == "degraded":
+                color = "yellow"
+                icon = "🟡"
+            elif status == "suppressed":
+                color = "red"
+                icon = "🔴"
+            elif status == "recovering":
+                color = "cyan"
+                icon = "🔵"
+            else:
+                color = "white"
+                icon = "⚪"
+
+            # Format: ⚠️  *** Health Changed: Poller → Degraded
+            prev_part = f" (was {previous})" if previous else ""
+            return f"{icon} [{color}]*** Health Changed:[/] {subsystem} → {status.title()}{prev_part}\n"
+
+        return None
+
+    def _format_event_for_buffer(self, event_type: str, timestamp: str, data: dict) -> str:
+        """
+        Format event as verbose buffer entry for logs events view.
+
+        Args:
+            event_type: Event type
+            timestamp: ISO8601 timestamp
+            data: Event data payload
+
+        Returns:
+            Formatted event string with ANSI colors
+        """
+        # Parse timestamp for display
+        try:
+            from datetime import datetime
+            dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            time_str = dt.strftime("%m/%d %H:%M:%S")
+        except Exception:
+            time_str = timestamp[:19]  # Fallback to truncated timestamp
+
+        # ANSI colors
+        reset = "\033[0m"
+        dim = "\033[2m"
+        cyan = "\033[36m"
+        green = "\033[32m"
+        yellow = "\033[33m"
+        red = "\033[31m"
+        blue = "\033[34m"
+        magenta = "\033[35m"
+
+        if event_type == "device_discovered":
+            device_id = data.get("device_id", "unknown")
+            ip = data.get("ip", "")
+            model = data.get("model", "")
+            device_type = data.get("device_type", "")
+            is_new = data.get("is_new", False)
+
+            # Update cache
+            self._update_device_cache(device_id, data)
+
+            new_marker = " [NEW]" if is_new else ""
+            formatted = f"{dim}[{time_str}]{reset} 🔵 {cyan}Device Discovered{new_marker}{reset}\n"
+            formatted += f"{dim}  ╰─► {reset}ID: {device_id}\n"
+            if ip:
+                formatted += f"{dim}     {reset}IP: {ip}\n"
+            if model:
+                formatted += f"{dim}     {reset}Model: {model}\n"
+            if device_type:
+                formatted += f"{dim}     {reset}Type: {device_type}\n"
+            return formatted
+
+        elif event_type == "device_online":
+            device_id = data.get("device_id", "unknown")
+            reason = data.get("previous_offline_reason", "")
+
+            formatted = f"{dim}[{time_str}]{reset} 🟢 {green}Device Online:{reset} {device_id}\n"
+            if reason:
+                formatted += f"{dim}  ╰─► {reset}Previous offline reason: {reason}\n"
+            return formatted
+
+        elif event_type == "device_offline":
+            device_id = data.get("device_id", "unknown")
+            reason = data.get("reason", "unknown")
+            failures = data.get("failure_count", 0)
+
+            formatted = f"{dim}[{time_str}]{reset} 🔴 {red}Device Offline:{reset} {device_id}\n"
+            formatted += f"{dim}  ╰─► {reset}Reason: {reason}\n"
+            if failures:
+                formatted += f"{dim}     {reset}Failures: {failures}\n"
+            return formatted
+
+        elif event_type == "device_updated":
+            device_id = data.get("device_id", "unknown")
+            changed_fields = data.get("changed_fields", [])
+            ip = data.get("ip", "")
+
+            fields_str = ", ".join(changed_fields) if changed_fields else "unknown"
+            formatted = f"{dim}[{time_str}]{reset} 🔵 {cyan}Device Updated:{reset} {device_id}\n"
+            formatted += f"{dim}  ╰─► {reset}Changed: {fields_str}\n"
+            if ip:
+                formatted += f"{dim}     {reset}IP: {ip}\n"
+            return formatted
+
+        elif event_type == "mapping_created":
+            mapping_id = data.get("mapping_id", "?")
+            universe = data.get("universe", "?")
+            channel = data.get("channel", "?")
+
+            formatted = f"{dim}[{time_str}]{reset} ⚙️  {blue}Mapping Created{reset}\n"
+            formatted += f"{dim}  ╰─► {reset}ID: {mapping_id}\n"
+            formatted += f"{dim}     {reset}Universe: {universe}, Channel: {channel}\n"
+            return formatted
+
+        elif event_type == "mapping_updated":
+            mapping_id = data.get("mapping_id", "?")
+            changed_fields = data.get("changed_fields", [])
+
+            fields_str = ", ".join(changed_fields) if changed_fields else "unknown"
+            formatted = f"{dim}[{time_str}]{reset} ⚙️  {blue}Mapping Updated:{reset} ID {mapping_id}\n"
+            formatted += f"{dim}  ╰─► {reset}Changed: {fields_str}\n"
+            return formatted
+
+        elif event_type == "mapping_deleted":
+            mapping_id = data.get("mapping_id", "?")
+
+            formatted = f"{dim}[{time_str}]{reset} ⚙️  {yellow}Mapping Deleted:{reset} ID {mapping_id}\n"
+            return formatted
+
+        elif event_type == "health_status_changed":
+            subsystem = data.get("subsystem", "unknown")
+            status = data.get("status", "unknown")
+            previous = data.get("previous_status", "")
+            failures = data.get("failure_count")
+
+            # Choose color and icon based on status
+            if status == "ok":
+                color = green
+                icon = "🟢"
+            elif status == "degraded":
+                color = yellow
+                icon = "🟡"
+            elif status == "suppressed":
+                color = red
+                icon = "🔴"
+            elif status == "recovering":
+                color = cyan
+                icon = "🔵"
+            else:
+                color = reset
+                icon = "⚪"
+
+            formatted = f"{dim}[{time_str}]{reset} {icon} {color}Health Status Changed{reset}\n"
+            formatted += f"{dim}  ╰─► {reset}Subsystem: {subsystem}\n"
+            formatted += f"{dim}     {reset}Status: {previous} → {status}\n"
+            if failures is not None:
+                formatted += f"{dim}     {reset}Failures: {failures}\n"
+            return formatted
+
+        # Default format for unknown event types
+        formatted = f"{dim}[{time_str}]{reset} ⚪ {event_type}\n"
+        for key, value in data.items():
+            formatted += f"{dim}  ╰─► {reset}{key}: {value}\n"
+        return formatted
+
+    async def _ws_loop(self) -> None:
+        """Main WebSocket connection loop with reconnection."""
+        while self._should_reconnect:
+            try:
+                self.state = ConnectionState.CONNECTING
+                self.app.invalidate()
+
+                # Connect to WebSocket
+                async with websockets.connect(
+                    self.ws_url,
+                    ping_interval=None,  # Handle ping manually per API spec
+                    ping_timeout=None,
+                ) as websocket:
+                    self.websocket = websocket
+                    self.state = ConnectionState.CONNECTED
+                    self._reconnect_delay = 1.0  # Reset backoff on successful connect
+                    self.app.invalidate()
+
+                    # Receive and process event messages
+                    async for message in websocket:
+                        try:
+                            data = json.loads(message)
+
+                            # Handle ping/pong keepalive
+                            if data.get("type") == "ping":
+                                await websocket.send(json.dumps({"type": "pong"}))
+                                continue
+
+                            # Extract event details
+                            event_type = data.get("event", "")
+                            timestamp = data.get("timestamp", "")
+                            event_data = data.get("data", {})
+
+                            if not event_type:
+                                continue
+
+                            # Apply filter if set
+                            if self.event_type_filter:
+                                event_category = event_type.split("_")[0]  # "device", "mapping", "health"
+                                if event_category != self.event_type_filter:
+                                    continue
+
+                            # Format for verbose buffer (logs events view)
+                            buffer_line = self._format_event_for_buffer(event_type, timestamp, event_data)
+                            self.append_event_line(buffer_line)
+
+                            # Format for console notification (only if not executing command)
+                            if not self.shell.is_executing_command:
+                                console_line = self._format_event_for_console(event_type, event_data)
+                                if console_line:
+                                    # Append to output buffer
+                                    self.shell._append_output(console_line)
+
+                        except json.JSONDecodeError:
+                            continue
+                        except Exception as exc:
+                            # Event parsing errors shouldn't crash the loop
+                            error_line = f"\033[31mError parsing event: {exc}\033[0m\n"
+                            self.append_event_line(error_line)
+
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:
+                # Connection failed, set state and reconnect with backoff
+                if self._should_reconnect:
+                    self.state = ConnectionState.RECONNECTING
+                    self.websocket = None
+                    self.app.invalidate()
+
+                    # Exponential backoff: 1s -> 2s -> 4s -> 8s -> 10s (max)
+                    await asyncio.sleep(self._reconnect_delay)
+                    self._reconnect_delay = min(self._reconnect_delay * 2, self.MAX_RECONNECT_DELAY)
+                else:
+                    break
+
+        self.state = ConnectionState.DISCONNECTED
+        self.websocket = None
+        self.app.invalidate()
+
+    async def _batch_update_loop(self) -> None:
+        """Batch UI updates every BATCH_INTERVAL to reduce redraw frequency."""
+        try:
+            while True:
+                await asyncio.sleep(self.BATCH_INTERVAL)
+
+                if self._pending_lines:
+                    async with self._lock:
+                        # Collect all pending lines
+                        lines_to_add = "".join(self._pending_lines)
+                        self._pending_lines.clear()
+
+                    # Append to buffer
+                    if lines_to_add:
+                        # Get current buffer text
+                        current_text = self.events_buffer.text
+                        new_text = current_text + lines_to_add
+
+                        # Trim buffer if exceeding max size
+                        if len(new_text) > self.MAX_BUFFER_CHARS:
+                            # Keep only the last MAX_BUFFER_CHARS characters
+                            # Try to cut at a newline boundary
+                            trim_point = len(new_text) - self.MAX_BUFFER_CHARS
+                            newline_pos = new_text.find('\n', trim_point)
+                            if newline_pos != -1:
+                                new_text = new_text[newline_pos + 1:]
+                            else:
+                                new_text = new_text[trim_point:]
+
+                        # Update buffer
+                        if self.follow_tail:
+                            cursor_pos = len(new_text)
+                            if new_text and new_text.endswith('\n'):
+                                cursor_pos = max(0, len(new_text) - 1)
+                        else:
+                            cursor_pos = self.events_buffer.cursor_position
+
+                        self.events_buffer.set_document(
+                            Document(text=new_text, cursor_position=cursor_pos),
+                            bypass_readonly=True
+                        )
+
+                        # Invalidate UI
+                        self.app.invalidate()
+
+        except asyncio.CancelledError:
+            pass
+
+
 class WatchController:
     """
     Controller for periodic watch updates with overlay window.
@@ -487,7 +1026,9 @@ class WatchController:
 
                     # Execute command based on target
                     if self.watch_target == "devices":
-                        self.shell.device_handler._show_devices_simple()
+                        # Check if this is detailed device monitor or simple device list
+                        # "devices" refers to the detailed monitor, use simple list otherwise
+                        self.shell.monitoring_handler._monitor_devices()
                     elif self.watch_target == "mappings":
                         self.shell.mapping_handler._show_mappings_list()
                     elif self.watch_target == "logs":

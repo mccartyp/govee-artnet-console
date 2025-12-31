@@ -203,8 +203,17 @@ def check_auth(x_api_key: Optional[str] = Header(None)):
 # Health and Status endpoints
 @app.get("/health")
 def health():
-    """Health check endpoint."""
-    return {"status": "ok"}
+    """Health check endpoint with subsystems."""
+    return {
+        "status": "ok",
+        "subsystems": {
+            "discovery": {"status": "ok"},
+            "sender": {"status": "ok"},
+            "artnet": {"status": "ok"},
+            "api": {"status": "ok"},
+            "poller": {"status": "ok"},
+        }
+    }
 
 
 @app.get("/status")
@@ -501,27 +510,117 @@ async def websocket_logs(websocket: WebSocket, level: Optional[str] = None, logg
 
 @app.websocket("/events/stream")
 async def websocket_events(websocket: WebSocket):
-    """Stream events via WebSocket."""
+    """Stream events via WebSocket with ping/pong keepalive."""
     await websocket.accept()
 
     try:
-        # Send periodic events
-        counter = 0
-        while True:
-            await asyncio.sleep(3)
-            event = {
+        # Send periodic ping messages for keepalive (every 30 seconds)
+        async def send_pings():
+            while True:
+                await asyncio.sleep(30)
+                try:
+                    await websocket.send_json({"type": "ping"})
+                except Exception:
+                    break
+
+        # Start ping task
+        ping_task = asyncio.create_task(send_pings())
+
+        # Define various event types to cycle through
+        event_sequence = [
+            {
+                "event": "device_discovered",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "data": {
+                    "device_id": "AA:BB:CC:DD:EE:FF:11:22",
+                    "ip": "192.168.1.100",
+                    "model": "H6160",
+                    "device_type": "led_strip",
+                    "capabilities": ["color", "brightness", "temperature"],
+                    "is_new": True,
+                },
+            },
+            {
+                "event": "device_online",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "data": {
+                    "device_id": "AA:BB:CC:DD:EE:FF:11:22",
+                    "previous_offline_reason": "network_timeout",
+                },
+            },
+            {
+                "event": "mapping_created",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "data": {
+                    "mapping_id": 1,
+                    "universe": 0,
+                    "channel": 1,
+                    "device_id": "AA:BB:CC:DD:EE:FF:11:22",
+                },
+            },
+            {
                 "event": "device_updated",
                 "timestamp": datetime.utcnow().isoformat() + "Z",
                 "data": {
                     "device_id": "AA:BB:CC:DD:EE:FF:11:22",
-                    "field": "brightness",
-                    "value": 128 + (counter % 128),
+                    "changed_fields": ["brightness", "color"],
+                    "ip": "192.168.1.100",
                 },
-            }
-            counter += 1
+            },
+            {
+                "event": "health_status_changed",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "data": {
+                    "subsystem": "poller",
+                    "status": "degraded",
+                    "previous_status": "ok",
+                    "failure_count": 3,
+                },
+            },
+            {
+                "event": "device_offline",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "data": {
+                    "device_id": "11:22:33:44:55:66:77:88",
+                    "reason": "send_failures",
+                    "failure_count": 5,
+                },
+            },
+            {
+                "event": "mapping_deleted",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "data": {
+                    "mapping_id": 2,
+                },
+            },
+            {
+                "event": "health_status_changed",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "data": {
+                    "subsystem": "poller",
+                    "status": "ok",
+                    "previous_status": "degraded",
+                },
+            },
+        ]
+
+        # Send events in sequence
+        counter = 0
+        while True:
+            await asyncio.sleep(5)  # Send event every 5 seconds
+
+            # Update timestamp for each event
+            event = event_sequence[counter % len(event_sequence)].copy()
+            event["timestamp"] = datetime.utcnow().isoformat() + "Z"
+
             await websocket.send_json(event)
+            counter += 1
+
     except Exception:
         pass
+    finally:
+        if 'ping_task' in locals():
+            ping_task.cancel()
 
 
 if __name__ == "__main__":

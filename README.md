@@ -12,12 +12,32 @@ Interactive CLI console for managing Govee devices via the [Govee ArtNet LAN Bri
 - **Interactive Shell**: Full-featured command shell with tab completion, history, and rich formatting
 - **Device Management**: List, configure, enable/disable, and control Govee devices
 - **DMX Mapping**: Create and manage ArtNet to Govee device mappings
-- **Real-time Monitoring**: Live dashboards for device status, ArtNet packets, and system health
+- **Real-time Monitoring**: Comprehensive dashboards with health monitoring, device status, and statistics
+- **Event Streaming**: WebSocket-based real-time event notifications with background alerts
 - **Log Streaming**: Real-time log viewing with filtering and search capabilities
 - **Multi-Server Support**: Connect to multiple bridge instances with per-server configuration
 
+### Monitoring Dashboard Features
+- **📊 Comprehensive Dashboard**: System overview with health, devices, and statistics in one view
+  - Statistics summary cards (Total Devices, Online, Offline, Mappings)
+  - System health monitoring (discovery, sender, artnet, api, poller subsystems)
+  - Device table with real-time status (🟢 Online, 🔴 Offline, ⚪ Stale)
+  - Relative time formatting ("2m ago", "5h ago")
+
+- **🔔 Real-Time Event Notifications**: Background WebSocket event stream
+  - Device events: discovered, online, offline, updated
+  - Mapping events: created, updated, deleted
+  - Health events: subsystem status changes
+  - Console notifications with colored bubbles (🔵 🟢 🔴 ⚙️)
+  - Detailed event stream viewer with filtering
+
+- **👁️ Watch Mode**: Live updating dashboards with configurable refresh intervals
+  - `watch dashboard` - Auto-updating comprehensive view
+  - `watch devices` - Real-time device status monitoring
+  - Keyboard controls for speed adjustment (+/-)
+
 ### Advanced Features
-- **WebSocket Support**: Real-time updates for dashboards and log streaming
+- **WebSocket Support**: Dual WebSocket connections for logs and events
 - **Authentication**: API key and Bearer token support for secure connections
 - **Multiple Output Formats**: JSON, YAML, and formatted tables
 - **Bookmarks & Aliases**: Save device IDs and command shortcuts
@@ -65,13 +85,35 @@ govee-artnet-console devices list --output table
 Once in the shell:
 
 ```
+govee> monitor dashboard               # View comprehensive system dashboard
+govee> monitor devices                 # List all devices with detailed status
 govee> devices list                    # List all discovered devices
 govee> mappings create --device-id AA:BB:CC:DD:EE:FF:11:22 \
                         --universe 0 --template RGB --start-channel 1
-govee> monitor dashboard               # View live system dashboard
-govee> logs tail                       # Stream logs in real-time
+govee> logs events                     # View real-time event stream
+govee> logs tail                       # Stream application logs in real-time
+govee> watch dashboard                 # Live updating dashboard (updates every 5s)
 govee> help                            # Show all available commands
 ```
+
+### Dashboard & Monitoring Commands
+
+```bash
+# Static snapshots (execute once)
+monitor dashboard                      # Comprehensive dashboard with health + devices
+monitor devices                        # Detailed device table with all fields
+monitor stats                          # System statistics
+
+# Live updating views (auto-refresh)
+watch dashboard                        # Live dashboard (Esc/q to exit, +/- to adjust speed)
+watch devices                          # Live device monitor
+
+# Event streaming
+logs events                            # Real-time event notifications (device, mapping, health)
+logs events --type device              # Filter by event type (device|mapping|health)
+```
+
+**Note:** Event notifications appear automatically in the background while you work. Look for colored bubble indicators (🔵 🟢 🔴 ⚙️) in the console output!
 
 ## Configuration
 

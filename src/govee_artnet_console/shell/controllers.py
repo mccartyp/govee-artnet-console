@@ -565,11 +565,18 @@ class LogViewController:
         return self.total_pages > 0 and self.current_page == self.total_pages - 1
 
     def calculate_logs_per_page(self) -> int:
-        """Calculate how many logs fit per page based on terminal height."""
+        """Calculate how many logs fit per page based on terminal height.
+
+        Accounts for line wrapping by assuming each log entry may span
+        multiple visual rows (average 2 rows per log entry).
+        """
         import shutil
         terminal_height = shutil.get_terminal_size(fallback=(80, 24)).lines
-        # Reserve: toolbar (3) + prompt (1) + separator (1) = 5 lines
-        return max(10, terminal_height - 5)
+        # Reserve: toolbar (3) + prompt (1) + separator (1) + table header (3) = 8 lines
+        available_lines = max(10, terminal_height - 8)
+        # Assume average 2 visual rows per log entry due to wrapping
+        # This ensures we don't overflow the screen
+        return max(5, available_lines // 2)
 
     async def start(
         self,
@@ -872,7 +879,10 @@ class LogViewController:
         self.app.invalidate()
 
     def _render_logs_table(self) -> str:
-        """Render logs in ASCII table format with extra fields."""
+        """Render logs in ASCII table format with extra fields and line wrapping."""
+        import shutil
+        import textwrap
+
         # Standard fields that are always present
         STANDARD_FIELDS = {"timestamp", "level", "logger", "message"}
 
@@ -885,52 +895,93 @@ class LogViewController:
 
         extra_field_names = sorted(extra_field_names)  # Sort for consistent ordering
 
-        # Calculate column widths
+        # Get terminal width
+        terminal_width = shutil.get_terminal_size(fallback=(80, 24)).columns
+
+        # Calculate column widths dynamically
+        # Fixed widths for timestamp, level
         timestamp_width = 15  # "Jan 15 14:35:42"
         level_width = 8
-        logger_width = 20
-        message_width = 50
-        extra_field_width = 20  # Width for each extra field column
+
+        # Account for borders and padding:
+        # Each column has "│ " before and " " after (3 chars per column)
+        # Plus opening and closing borders (2 chars total)
+        border_overhead = 3 * 4 + 2  # 4 columns minimum (timestamp, level, logger, message)
+        if extra_field_names:
+            border_overhead += 3 * len(extra_field_names)
+
+        # Available width for content
+        available_width = max(40, terminal_width - border_overhead)
+
+        # Allocate remaining width proportionally
+        logger_width = max(15, int(available_width * 0.20))
+        message_width = max(20, int(available_width * 0.35))
+
+        # Extra field gets remaining space or 20% if multiple extra fields
+        if extra_field_names:
+            extra_field_width = max(15, int(available_width * 0.25))
+        else:
+            extra_field_width = 0
+
+        # Helper function to wrap text
+        def wrap_text(text: str, width: int) -> list[str]:
+            """Wrap text to fit within width, returning list of lines."""
+            if not text:
+                return [""]
+            # Use textwrap to handle word boundaries
+            wrapped = textwrap.wrap(text, width=width, break_long_words=True, break_on_hyphens=False)
+            return wrapped if wrapped else [""]
+
+        # Helper function to strip ANSI codes for length calculation
+        def strip_ansi(text: str) -> str:
+            """Remove ANSI color codes from text."""
+            import re
+            return re.sub(r'\033\[[0-9;]+m', '', text)
 
         # Build table header
         output = ""
         output += "\033[1;36m"  # Bold cyan
-        output += "┌" + "─" * (timestamp_width + 2) + "┬"
-        output += "─" * (level_width + 2) + "┬"
-        output += "─" * (logger_width + 2) + "┬"
-        output += "─" * (message_width + 2)
+        output += "┌─" + "─" * timestamp_width + "─┬"
+        output += "─" + "─" * level_width + "─┬"
+        output += "─" + "─" * logger_width + "─┬"
+        output += "─" + "─" * message_width + "─"
 
         # Add extra field columns
         for _ in extra_field_names:
-            output += "┬" + "─" * (extra_field_width + 2)
+            output += "┬─" + "─" * extra_field_width + "─"
 
         output += "┐\033[0m\n"
 
         # Header row
         output += "\033[1;36m│\033[0m "
-        output += f"\033[1mTimestamp\033[0m".ljust(timestamp_width) + " "
-        output += "\033[1;36m│\033[0m "
-        output += f"\033[1mLevel\033[0m".ljust(level_width) + " "
-        output += "\033[1;36m│\033[0m "
-        output += f"\033[1mLogger\033[0m".ljust(logger_width) + " "
-        output += "\033[1;36m│\033[0m "
-        output += f"\033[1mMessage\033[0m".ljust(message_width) + " "
+        output += f"\033[1mTimestamp\033[0m{' ' * (timestamp_width - 9)}"
+        output += " \033[1;36m│\033[0m "
+        output += f"\033[1mLevel\033[0m{' ' * (level_width - 5)}"
+        output += " \033[1;36m│\033[0m "
+        output += f"\033[1mLogger\033[0m{' ' * (logger_width - 6)}"
+        output += " \033[1;36m│\033[0m "
+        output += f"\033[1mMessage\033[0m{' ' * (message_width - 7)}"
+        output += " "
 
         for field_name in extra_field_names:
+            title = field_name.title()
             output += "\033[1;36m│\033[0m "
-            output += f"\033[1m{field_name.title()}\033[0m".ljust(extra_field_width) + " "
+            output += f"\033[1m{title}\033[0m"
+            # Pad to width
+            output += " " * (extra_field_width - len(title))
+            output += " "
 
         output += "\033[1;36m│\033[0m\n"
 
         # Separator
-        output += "\033[1;36m├"
-        output += "─" * (timestamp_width + 2) + "┼"
-        output += "─" * (level_width + 2) + "┼"
-        output += "─" * (logger_width + 2) + "┼"
-        output += "─" * (message_width + 2)
+        output += "\033[1;36m├─"
+        output += "─" * timestamp_width + "─┼"
+        output += "─" * level_width + "─┼"
+        output += "─" * logger_width + "─┼"
+        output += "─" * message_width + "─"
 
         for _ in extra_field_names:
-            output += "┼" + "─" * (extra_field_width + 2)
+            output += "┼─" + "─" * extra_field_width + "─"
 
         output += "┤\033[0m\n"
 
@@ -944,11 +995,38 @@ class LogViewController:
             logger_name = log_entry.get("logger", "")
             message = log_entry.get("message", "")
 
-            # Truncate fields if too long
-            formatted_time = formatted_time[:timestamp_width].ljust(timestamp_width)
-            level_display = level[:level_width].ljust(level_width)
-            logger_display = logger_name[:logger_width].ljust(logger_width)
-            message_display = message[:message_width].ljust(message_width)
+            # Wrap fields that might be long
+            time_lines = [formatted_time[:timestamp_width].ljust(timestamp_width)]
+            level_lines = [level[:level_width].ljust(level_width)]
+            logger_lines = wrap_text(logger_name, logger_width)
+            message_lines = wrap_text(message, message_width)
+
+            # Wrap extra fields
+            extra_lines_dict = {}
+            for field_name in extra_field_names:
+                field_value = str(log_entry.get(field_name, ""))
+                extra_lines_dict[field_name] = wrap_text(field_value, extra_field_width)
+
+            # Calculate max lines needed for this row
+            max_lines = max(
+                len(logger_lines),
+                len(message_lines),
+                max([len(lines) for lines in extra_lines_dict.values()]) if extra_lines_dict else 1,
+                1
+            )
+
+            # Pad all columns to same height
+            while len(time_lines) < max_lines:
+                time_lines.append(" " * timestamp_width)
+            while len(level_lines) < max_lines:
+                level_lines.append(" " * level_width)
+            while len(logger_lines) < max_lines:
+                logger_lines.append(" " * logger_width)
+            while len(message_lines) < max_lines:
+                message_lines.append(" " * message_width)
+            for field_name in extra_field_names:
+                while len(extra_lines_dict[field_name]) < max_lines:
+                    extra_lines_dict[field_name].append(" " * extra_field_width)
 
             # Color code by level
             level_colors = {
@@ -963,34 +1041,63 @@ class LogViewController:
             dim = "\033[2m"
             cyan = "\033[36m"
 
-            # Build row
-            output += "\033[1;36m│\033[0m "
-            output += f"{dim}{formatted_time}{reset} "
-            output += "\033[1;36m│\033[0m "
-            output += f"{level_color}{level_display}{reset} "
-            output += "\033[1;36m│\033[0m "
-            output += f"{cyan}{logger_display}{reset} "
-            output += "\033[1;36m│\033[0m "
-            output += f"{message_display} "
-
-            # Add extra field values
-            for field_name in extra_field_names:
-                field_value = str(log_entry.get(field_name, ""))
-                field_display = field_value[:extra_field_width].ljust(extra_field_width)
+            # Render all lines for this log entry
+            for line_idx in range(max_lines):
                 output += "\033[1;36m│\033[0m "
-                output += f"{field_display} "
 
-            output += "\033[1;36m│\033[0m\n"
+                # Timestamp (only colored on first line)
+                time_text = time_lines[line_idx]
+                if line_idx == 0:
+                    output += f"{dim}{time_text}{reset}"
+                else:
+                    output += time_text
+                output += " \033[1;36m│\033[0m "
+
+                # Level (only colored on first line)
+                level_text = level_lines[line_idx]
+                if line_idx == 0:
+                    output += f"{level_color}{level_text}{reset}"
+                else:
+                    output += level_text
+                output += " \033[1;36m│\033[0m "
+
+                # Logger (only colored on first line)
+                logger_text = logger_lines[line_idx]
+                # Ensure proper width
+                logger_text = logger_text[:logger_width].ljust(logger_width)
+                if line_idx == 0:
+                    output += f"{cyan}{logger_text}{reset}"
+                else:
+                    output += logger_text
+                output += " \033[1;36m│\033[0m "
+
+                # Message
+                message_text = message_lines[line_idx]
+                # Ensure proper width
+                message_text = message_text[:message_width].ljust(message_width)
+                output += message_text
+                output += " "
+
+                # Extra fields
+                for field_name in extra_field_names:
+                    extra_text = extra_lines_dict[field_name][line_idx]
+                    # Ensure proper width
+                    extra_text = extra_text[:extra_field_width].ljust(extra_field_width)
+                    output += "\033[1;36m│\033[0m "
+                    output += extra_text
+                    output += " "
+
+                output += "\033[1;36m│\033[0m\n"
 
         # Bottom border
-        output += "\033[1;36m└"
-        output += "─" * (timestamp_width + 2) + "┴"
-        output += "─" * (level_width + 2) + "┴"
-        output += "─" * (logger_width + 2) + "┴"
-        output += "─" * (message_width + 2)
+        output += "\033[1;36m└─"
+        output += "─" * timestamp_width + "─┴"
+        output += "─" * level_width + "─┴"
+        output += "─" * logger_width + "─┴"
+        output += "─" * message_width + "─"
 
         for _ in extra_field_names:
-            output += "┴" + "─" * (extra_field_width + 2)
+            output += "┴─" + "─" * extra_field_width + "─"
 
         output += "┘\033[0m\n"
 

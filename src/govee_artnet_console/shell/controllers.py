@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
+import textwrap
 from collections import deque
 from datetime import datetime
 from enum import Enum
@@ -275,12 +277,34 @@ class LogTailController:
                                 extra_items = [f"{k}={v}" for k, v in extra.items()]
                                 extra_text = " ".join(extra_items)
 
-                                # Add visual connector with indentation
-                                # Use box-drawing character and color to show relationship
-                                formatted_line += (
-                                    f"{dim}  ╰─► {reset}"
-                                    f"{magenta}{extra_text}{reset}\n"
+                                # Get terminal width for wrapping
+                                terminal_width = shutil.get_terminal_size(fallback=(80, 24)).columns
+
+                                # Prefix for extra lines: "  ╰─► " (6 visible chars)
+                                prefix = f"{dim}  ╰─► {reset}"
+                                # Continuation prefix for wrapped lines: "     " (5 spaces for alignment)
+                                continuation_prefix = f"{dim}     {reset}"
+
+                                # Calculate available width for text (account for prefix and some margin)
+                                prefix_width = 6  # "  ╰─► "
+                                available_width = max(40, terminal_width - prefix_width - 2)  # -2 for safety margin
+
+                                # Wrap the extra text
+                                wrapped_lines = textwrap.wrap(
+                                    extra_text,
+                                    width=available_width,
+                                    break_long_words=True,
+                                    break_on_hyphens=False
                                 )
+
+                                # Add wrapped lines with proper indentation
+                                for i, line in enumerate(wrapped_lines):
+                                    if i == 0:
+                                        # First line uses the arrow prefix
+                                        formatted_line += f"{prefix}{magenta}{line}{reset}\n"
+                                    else:
+                                        # Continuation lines use aligned spacing
+                                        formatted_line += f"{continuation_prefix}{magenta}{line}{reset}\n"
 
                             self.append_log_line(formatted_line)
 

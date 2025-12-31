@@ -40,6 +40,8 @@ black = ">=24.0.0"
 ruff = ">=0.3.0"
 mypy = ">=1.8.0"
 types-pyyaml = ">=6.0.0"
+fastapi = ">=0.100.0"
+uvicorn = ">=0.23.0"
 
 [tool.poetry.scripts]
 govee-artnet-console = "govee_artnet_console.__main__:main"

@@ -103,11 +103,27 @@ class MappingCommandHandler(CommandHandler):
 
             # Add mapping rows
             for mapping in mappings:
-                # Format fields list for display with pretty names
+                # Format fields list for display with pretty names and color coding
                 fields = mapping.get("fields", [])
                 if fields:
                     pretty_fields = [FIELD_DESCRIPTIONS.get(f, f.capitalize()) for f in fields]
-                    fields_str = ", ".join(pretty_fields)
+                    # Apply color coding to each field
+                    colored_fields = []
+                    for field in pretty_fields:
+                        # Apply color coding based on field name (similar to channels list)
+                        if "Red" in field:
+                            colored_fields.append("[red]" + field + "[/]")
+                        elif "Green" in field:
+                            colored_fields.append("[green]" + field + "[/]")
+                        elif "Blue" in field:
+                            colored_fields.append("[blue]" + field + "[/]")
+                        elif "White" in field or "Brightness" in field or "Dimmer" in field:
+                            colored_fields.append("[white]" + field + "[/]")
+                        elif "Temp" in field or "CCT" in field:
+                            colored_fields.append("[yellow]" + field + "[/]")
+                        else:
+                            colored_fields.append(field)
+                    fields_str = ", ".join(colored_fields)
                 else:
                     fields_str = "N/A"
 
@@ -161,15 +177,15 @@ class MappingCommandHandler(CommandHandler):
                 self.shell._append_output("\n[bold]Available templates:[/]\n")
                 self.shell._append_output("  • RGB             - 3 channels: Red, Green, Blue\n")
                 self.shell._append_output("  • RGBCT           - 4 channels: Red, Green, Blue, Color Temp\n")
-                self.shell._append_output("  • DimRGBCT        - 5 channels: Brightness, Red, Green, Blue, Color Temp\n")
-                self.shell._append_output("  • DimCT           - 2 channels: Brightness, Color Temp\n")
+                self.shell._append_output("  • DimRGBCT        - 5 channels: Dimmer, Red, Green, Blue, Color Temp\n")
+                self.shell._append_output("  • DimCT           - 2 channels: Dimmer, Color Temp\n")
                 self.shell._append_output("\n[bold]Single channel mappings (recommended for individual control):[/]\n")
                 self.shell._append_output("  mappings create --device-id <id> [--universe <num>] --channel <num> --field <field>\n")
                 self.shell._append_output("\n[bold]Multi-channel range mappings:[/]\n")
                 self.shell._append_output("  mappings create --device-id <id> [--universe <num>] --channel <num> --length <num>\n")
                 self.shell._append_output("\n[bold]Available fields (for single channel mappings):[/]\n")
                 self.shell._append_output("  • power              - Power on/off (DMX >= 128 = on, < 128 = off) [all devices]\n")
-                self.shell._append_output("  • brightness         - Brightness control (0-255) [requires brightness capability]\n")
+                self.shell._append_output("  • brightness         - Dimmer control (0-255) [requires brightness capability]\n")
                 self.shell._append_output("  • r (or red)         - Red channel only [requires color capability]\n")
                 self.shell._append_output("  • g (or green)       - Green channel only [requires color capability]\n")
                 self.shell._append_output("  • b (or blue)        - Blue channel only [requires color capability]\n")
@@ -186,7 +202,7 @@ class MappingCommandHandler(CommandHandler):
                 self.shell._append_output("  mappings create --device-id @kitchen --universe 1 --template DimRGBCT --start-channel 10\n")
                 self.shell._append_output("\n  # Single channel mappings\n")
                 self.shell._append_output("  mappings create --device-id AA:BB:CC:DD:EE:FF --channel 1 --field power\n")
-                self.shell._append_output("  mappings create --device-id AA:BB:CC:DD:EE:FF --channel 5 --field brightness\n")
+                self.shell._append_output("  mappings create --device-id AA:BB:CC:DD:EE:FF --channel 5 --field brightness  # Dimmer control\n")
                 self.shell._append_output("  mappings create --device-id @kitchen --channel 20 --field ct\n")
                 self.shell._append_output("  mappings create --device-id @kitchen --channel 21 --field red\n")
                 self.shell._append_output("\n  # Manual multi-channel range mapping\n")

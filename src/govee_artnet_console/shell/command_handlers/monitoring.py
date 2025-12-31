@@ -99,10 +99,10 @@ class MonitoringCommandHandler(CommandHandler):
                 "rgb": ["Red", "Green", "Blue"],
                 "rgbw": ["Red", "Green", "Blue", "White"],
                 "rgbww": ["Red", "Green", "Blue", "Warm White", "Cool White"],
-                "brightness": ["Brightness"],
+                "brightness": ["Dimmer"],
                 "dimmer": ["Dimmer"],
-                "cct": ["Color Temp", "Brightness"],
-                "rgbcct": ["Red", "Green", "Blue", "Color Temp", "Brightness"],
+                "cct": ["Color Temp", "Dimmer"],
+                "rgbcct": ["Red", "Green", "Blue", "Color Temp", "Dimmer"],
             }
 
             for mapping in universe_mappings:
@@ -123,7 +123,7 @@ class MonitoringCommandHandler(CommandHandler):
                     # Map individual fields to display names
                     field_display = {
                         "r": "Red", "g": "Green", "b": "Blue", "w": "White",
-                        "brightness": "Brightness", "temperature": "Color Temp", "ct": "Color Temp"
+                        "brightness": "Dimmer", "temperature": "Color Temp", "ct": "Color Temp"
                     }
                     functions = [field_display.get(f, f.capitalize()) for f in fields_list]
                 elif not functions:

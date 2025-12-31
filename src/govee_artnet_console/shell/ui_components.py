@@ -27,7 +27,7 @@ FIELD_DESCRIPTIONS = {
     "g": "Green",
     "b": "Blue",
     "w": "White",
-    "brightness": "Brightness",
+    "brightness": "Dimmer",
     "ct": "Color Temp",
 }
 

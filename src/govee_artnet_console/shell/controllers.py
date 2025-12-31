@@ -857,35 +857,8 @@ class LogViewController:
             else:
                 output += "\033[2mNo logs found matching current filters\033[0m\n"
         else:
-            for log_entry in self.current_logs:
-                # Format timestamp: ISO to "Jan 15 14:35:42"
-                timestamp = log_entry.get("timestamp", "")
-                formatted_time = self._format_timestamp(timestamp)
-
-                level = log_entry.get("level", "INFO")
-                logger_name = log_entry.get("logger", "")
-                message = log_entry.get("message", "")
-
-                # Color code by level
-                level_colors = {
-                    "DEBUG": "\033[36m",      # Cyan
-                    "INFO": "\033[32m",       # Green
-                    "WARNING": "\033[33m",    # Yellow
-                    "ERROR": "\033[31m",      # Red
-                    "CRITICAL": "\033[1;31m", # Bold red
-                }
-                level_color = level_colors.get(level, "\033[37m")
-                reset = "\033[0m"
-                dim = "\033[2m"
-                cyan = "\033[36m"
-
-                formatted_line = (
-                    f"{dim}{formatted_time}{reset} "
-                    f"{level_color}{level:<8}{reset} "
-                    f"{cyan}{logger_name}{reset}: "
-                    f"{message}\n"
-                )
-                output += formatted_line
+            # Render logs in table format
+            output += self._render_logs_table()
 
         # Add modal overlay if in modal mode
         if self.in_modal:
@@ -897,6 +870,131 @@ class LogViewController:
             bypass_readonly=True
         )
         self.app.invalidate()
+
+    def _render_logs_table(self) -> str:
+        """Render logs in ASCII table format with extra fields."""
+        # Standard fields that are always present
+        STANDARD_FIELDS = {"timestamp", "level", "logger", "message"}
+
+        # Collect all extra fields from all logs on this page
+        extra_field_names = set()
+        for log_entry in self.current_logs:
+            for key in log_entry.keys():
+                if key not in STANDARD_FIELDS:
+                    extra_field_names.add(key)
+
+        extra_field_names = sorted(extra_field_names)  # Sort for consistent ordering
+
+        # Calculate column widths
+        timestamp_width = 15  # "Jan 15 14:35:42"
+        level_width = 8
+        logger_width = 20
+        message_width = 50
+        extra_field_width = 20  # Width for each extra field column
+
+        # Build table header
+        output = ""
+        output += "\033[1;36m"  # Bold cyan
+        output += "┌" + "─" * (timestamp_width + 2) + "┬"
+        output += "─" * (level_width + 2) + "┬"
+        output += "─" * (logger_width + 2) + "┬"
+        output += "─" * (message_width + 2)
+
+        # Add extra field columns
+        for _ in extra_field_names:
+            output += "┬" + "─" * (extra_field_width + 2)
+
+        output += "┐\033[0m\n"
+
+        # Header row
+        output += "\033[1;36m│\033[0m "
+        output += f"\033[1mTimestamp\033[0m".ljust(timestamp_width) + " "
+        output += "\033[1;36m│\033[0m "
+        output += f"\033[1mLevel\033[0m".ljust(level_width) + " "
+        output += "\033[1;36m│\033[0m "
+        output += f"\033[1mLogger\033[0m".ljust(logger_width) + " "
+        output += "\033[1;36m│\033[0m "
+        output += f"\033[1mMessage\033[0m".ljust(message_width) + " "
+
+        for field_name in extra_field_names:
+            output += "\033[1;36m│\033[0m "
+            output += f"\033[1m{field_name.title()}\033[0m".ljust(extra_field_width) + " "
+
+        output += "\033[1;36m│\033[0m\n"
+
+        # Separator
+        output += "\033[1;36m├"
+        output += "─" * (timestamp_width + 2) + "┼"
+        output += "─" * (level_width + 2) + "┼"
+        output += "─" * (logger_width + 2) + "┼"
+        output += "─" * (message_width + 2)
+
+        for _ in extra_field_names:
+            output += "┼" + "─" * (extra_field_width + 2)
+
+        output += "┤\033[0m\n"
+
+        # Data rows
+        for log_entry in self.current_logs:
+            # Format timestamp: ISO to "Jan 15 14:35:42"
+            timestamp = log_entry.get("timestamp", "")
+            formatted_time = self._format_timestamp(timestamp)
+
+            level = log_entry.get("level", "INFO")
+            logger_name = log_entry.get("logger", "")
+            message = log_entry.get("message", "")
+
+            # Truncate fields if too long
+            formatted_time = formatted_time[:timestamp_width].ljust(timestamp_width)
+            level_display = level[:level_width].ljust(level_width)
+            logger_display = logger_name[:logger_width].ljust(logger_width)
+            message_display = message[:message_width].ljust(message_width)
+
+            # Color code by level
+            level_colors = {
+                "DEBUG": "\033[36m",      # Cyan
+                "INFO": "\033[32m",       # Green
+                "WARNING": "\033[33m",    # Yellow
+                "ERROR": "\033[31m",      # Red
+                "CRITICAL": "\033[1;31m", # Bold red
+            }
+            level_color = level_colors.get(level, "\033[37m")
+            reset = "\033[0m"
+            dim = "\033[2m"
+            cyan = "\033[36m"
+
+            # Build row
+            output += "\033[1;36m│\033[0m "
+            output += f"{dim}{formatted_time}{reset} "
+            output += "\033[1;36m│\033[0m "
+            output += f"{level_color}{level_display}{reset} "
+            output += "\033[1;36m│\033[0m "
+            output += f"{cyan}{logger_display}{reset} "
+            output += "\033[1;36m│\033[0m "
+            output += f"{message_display} "
+
+            # Add extra field values
+            for field_name in extra_field_names:
+                field_value = str(log_entry.get(field_name, ""))
+                field_display = field_value[:extra_field_width].ljust(extra_field_width)
+                output += "\033[1;36m│\033[0m "
+                output += f"{field_display} "
+
+            output += "\033[1;36m│\033[0m\n"
+
+        # Bottom border
+        output += "\033[1;36m└"
+        output += "─" * (timestamp_width + 2) + "┴"
+        output += "─" * (level_width + 2) + "┴"
+        output += "─" * (logger_width + 2) + "┴"
+        output += "─" * (message_width + 2)
+
+        for _ in extra_field_names:
+            output += "┴" + "─" * (extra_field_width + 2)
+
+        output += "┘\033[0m\n"
+
+        return output
 
     def _render_modal(self) -> str:
         """Render modal dialog overlay."""

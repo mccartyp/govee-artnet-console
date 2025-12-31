@@ -57,6 +57,7 @@ from .ui_components import (
 from .controllers import (
     ConnectionState,
     LogTailController,
+    LogViewController,
     WatchController,
 )
 
@@ -216,6 +217,18 @@ class GoveeShell:
         # Watch controller (will be initialized after app is created)
         self.watch_controller: Optional[WatchController] = None
 
+        # Create log view buffer for paginated log viewing
+        self.log_view_buffer = Buffer(
+            read_only=True,
+            multiline=True,
+        )
+
+        # Log view mode state
+        self.in_log_view_mode = False
+
+        # Log view controller (will be initialized after app is created)
+        self.log_view_controller: Optional[LogViewController] = None
+
         # Set up multi-level autocomplete with command structure
         completer = TrailingSpaceCompleter(get_completer_dict())
 
@@ -247,6 +260,13 @@ class GoveeShell:
         self.watch_controller = WatchController(
             app=self.app,
             watch_buffer=self.watch_buffer,
+            shell=self,
+        )
+
+        # Initialize log view controller now that app is created
+        self.log_view_controller = LogViewController(
+            app=self.app,
+            log_view_buffer=self.log_view_buffer,
             shell=self,
         )
 
@@ -507,6 +527,55 @@ class GoveeShell:
 
         # Show exit message in normal output
         self._append_output("\n[dim]Exited watch mode[/]\n")
+
+    async def _enter_log_view_mode(
+        self,
+        level: Optional[str] = "INFO",
+        logger: Optional[str] = None,
+        search_pattern: Optional[str] = None,
+        search_regex: bool = False,
+    ) -> None:
+        """
+        Enter log view mode with paginated log display.
+
+        Args:
+            level: Log level filter (INFO, WARNING, ERROR, CRITICAL, or None for ALL)
+            logger: Logger name filter (prefix match)
+            search_pattern: Search pattern (for search mode)
+            search_regex: Whether search pattern is regex
+        """
+        if self.in_log_view_mode:
+            return
+
+        # Clear log view buffer
+        self.log_view_buffer.set_document(Document(""), bypass_readonly=True)
+
+        # Switch to log view mode
+        self.in_log_view_mode = True
+        self.app.invalidate()
+
+        # Start log view controller
+        await self.log_view_controller.start(
+            level=level,
+            logger=logger,
+            search_pattern=search_pattern,
+            search_regex=search_regex,
+        )
+
+    async def _exit_log_view_mode(self) -> None:
+        """Exit log view mode and return to normal shell view."""
+        if not self.in_log_view_mode:
+            return
+
+        # Stop log view controller
+        await self.log_view_controller.stop()
+
+        # Switch back to normal mode
+        self.in_log_view_mode = False
+        self.app.invalidate()
+
+        # Show exit message in normal output
+        self._append_output("\n[dim]Exited log view mode[/]\n")
 
     def _accept_input(self, buffer: Buffer) -> bool:
         """

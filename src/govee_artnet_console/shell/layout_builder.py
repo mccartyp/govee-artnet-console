@@ -73,12 +73,22 @@ class LayoutBuilder:
             always_hide_cursor=True,
         )
 
+        self.shell.log_view_window = Window(
+            content=BufferControl(
+                buffer=self.shell.log_view_buffer,
+                lexer=ANSILexer(),
+                focusable=False,  # Keep focus on input for typing
+            ),
+            wrap_lines=False,
+            always_hide_cursor=True,
+        )
+
         # Build root container with all UI elements
         self.shell.root_container = HSplit([
-            # Conditionally show normal output, log tail, or watch based on mode
+            # Conditionally show normal output, log tail, watch, or log view based on mode
             ConditionalContainer(
                 content=self.shell.normal_output_window,
-                filter=Condition(lambda: not self.shell.in_log_tail_mode and not self.shell.in_watch_mode),
+                filter=Condition(lambda: not self.shell.in_log_tail_mode and not self.shell.in_watch_mode and not self.shell.in_log_view_mode),
             ),
             ConditionalContainer(
                 content=self.shell.log_tail_window,
@@ -88,8 +98,12 @@ class LayoutBuilder:
                 content=self.shell.watch_window,
                 filter=Condition(lambda: self.shell.in_watch_mode),
             ),
+            ConditionalContainer(
+                content=self.shell.log_view_window,
+                filter=Condition(lambda: self.shell.in_log_view_mode),
+            ),
             Window(height=1, char='─'),
-            # Hide input in log tail or watch mode, show in normal mode
+            # Hide input in log tail, watch, or log view mode; show in normal mode
             ConditionalContainer(
                 content=Window(
                     content=BufferControl(
@@ -99,7 +113,7 @@ class LayoutBuilder:
                     height=1,
                     get_line_prefix=lambda line_number, wrap_count: f"{self.shell.prompt}",
                 ),
-                filter=Condition(lambda: not self.shell.in_log_tail_mode and not self.shell.in_watch_mode),
+                filter=Condition(lambda: not self.shell.in_log_tail_mode and not self.shell.in_watch_mode and not self.shell.in_log_view_mode),
             ),
             # Show log tail prompt in log tail mode
             ConditionalContainer(
@@ -120,6 +134,16 @@ class LayoutBuilder:
                     ),
                 ),
                 filter=Condition(lambda: self.shell.in_watch_mode),
+            ),
+            # Show log view prompt in log view mode
+            ConditionalContainer(
+                content=Window(
+                    height=1,
+                    content=FormattedTextControl(
+                        text=lambda: "[Logs View - PgUp/PgDn: navigate | l: level | f: filter | Space: follow | ?: help | q/Esc: exit]"
+                    ),
+                ),
+                filter=Condition(lambda: self.shell.in_log_view_mode),
             ),
             Window(height=1, char='─'),
             Window(

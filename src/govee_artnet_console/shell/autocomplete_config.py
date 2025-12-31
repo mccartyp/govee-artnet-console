@@ -63,15 +63,18 @@ def get_completer_dict() -> dict:
         },
         'channels': {'list': None},
         'logs': {
-            'stats': None,
+            'view': {
+                '--level': {'DEBUG': None, 'INFO': None, 'WARNING': None, 'ERROR': None, 'CRITICAL': None},
+                '--logger': None,
+            },
             'tail': {
-                '--level': None,
+                '--level': {'DEBUG': None, 'INFO': None, 'WARNING': None, 'ERROR': None, 'CRITICAL': None},
                 '--logger': None,
             },
             'search': {
                 '--regex': None,
-                '--case-sensitive': None,
-                '--lines': None,
+                '--level': {'DEBUG': None, 'INFO': None, 'WARNING': None, 'ERROR': None, 'CRITICAL': None},
+                '--logger': None,
             },
         },
         'monitor': {'status': None, 'dashboard': None},

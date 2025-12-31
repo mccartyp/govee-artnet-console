@@ -210,18 +210,19 @@ class MonitoringCommandHandler(CommandHandler):
     def do_logs(self, arg: str) -> None:
         """
         View logs from the bridge.
-        Usage: logs [--lines N] [--level LEVEL] [--logger NAME]
-               logs tail [--level LEVEL] [--logger NAME]
-               logs search PATTERN [--regex]
+        Usage: logs view [--level LEVEL] [--logger LOGGER]
+               logs tail [--level LEVEL] [--logger LOGGER]
+               logs search PATTERN [--regex] [--level LEVEL] [--logger LOGGER]
         Examples:
-            logs
-            logs --lines 50
-            logs --level ERROR
-            logs --logger govee.discovery
+            logs view
+            logs view --level ERROR
+            logs view --logger govee.discovery
+            logs view --level ERROR --logger govee.api
             logs tail
             logs tail --level ERROR
             logs search "device discovered"
             logs search "error.*timeout" --regex
+            logs search "error" --level ERROR --logger govee.api
         """
         if not self.client:
             self.shell._append_output("[red]Not connected. Use 'connect' first.[/]" + "\n")
@@ -240,58 +241,87 @@ class MonitoringCommandHandler(CommandHandler):
                 self._logs_tail(args[1:])
                 return
 
+            # Check if this is a view command
+            if args and args[0] == "view":
+                self._logs_view(args[1:])
+                return
+
             # Check if this is a search command
             if args and args[0] == "search":
-                if len(args) < 2:
-                    self.shell._append_output("[yellow]Usage: logs search PATTERN [--regex] [--case-sensitive] [--lines N][/]" + "\n")
-                    return
+                self._logs_search(args[1:])
+                return
 
-                pattern = args[1]
-                params: dict[str, Any] = {"pattern": pattern}
-
-                # Parse optional flags
-                i = 2
-                while i < len(args):
-                    if args[i] == "--regex":
-                        params["regex"] = True
-                    elif args[i] == "--case-sensitive":
-                        params["case_sensitive"] = True
-                    elif args[i] == "--lines" and i + 1 < len(args):
-                        params["lines"] = int(args[i + 1])
-                        i += 1
-                    i += 1
-
-                data = _handle_response(self.client.get("/logs/search", params=params))
-                self.shell._append_output(f"[cyan]Found {data['count']} matching log entries:[/]" + "\n")
-                self.shell._capture_api_output(_print_output, data["logs"], self.config.output)
-
-            else:
-                # Regular log view
-                params: dict[str, Any] = {}
-
-                # Parse flags
-                i = 0
-                while i < len(args):
-                    if args[i] == "--lines" and i + 1 < len(args):
-                        params["lines"] = int(args[i + 1])
-                        i += 1
-                    elif args[i] == "--level" and i + 1 < len(args):
-                        params["level"] = args[i + 1]
-                        i += 1
-                    elif args[i] == "--logger" and i + 1 < len(args):
-                        params["logger"] = args[i + 1]
-                        i += 1
-                    elif args[i] == "--offset" and i + 1 < len(args):
-                        params["offset"] = int(args[i + 1])
-                        i += 1
-                    i += 1
-
-                data = _handle_response(self.client.get("/logs", params=params))
-                self.shell._append_output(f"[cyan]Showing {data['lines']} of {data['total']} log entries:[/]" + "\n")
-                self.shell._capture_api_output(_print_output, data["logs"], self.config.output)
+            # Default: show usage
+            self.shell._append_output("[yellow]Usage: logs view|tail|search[/]" + "\n")
+            self.shell._append_output("[dim]Try 'logs view' for paginated log viewer[/]" + "\n")
+            self.shell._append_output("[dim]Try 'logs tail' for real-time log streaming[/]" + "\n")
+            self.shell._append_output("[dim]Try 'logs search PATTERN' for searching logs[/]" + "\n")
 
         except Exception as exc:
             self.shell._handle_error(exc, "logs")
+
+    def _logs_view(self, args: list[str]) -> None:
+        """
+        View logs in paginated view mode.
+
+        Args:
+            args: Command arguments (filters)
+        """
+        # Parse filters
+        level_filter = "INFO"  # Default to INFO (excludes DEBUG)
+        logger_filter = None
+
+        i = 0
+        while i < len(args):
+            if args[i] == "--level" and i + 1 < len(args):
+                level_filter = args[i + 1].upper()
+                i += 1
+            elif args[i] == "--logger" and i + 1 < len(args):
+                logger_filter = args[i + 1]
+                i += 1
+            i += 1
+
+        # Enter log view mode (async)
+        asyncio.create_task(self.shell._enter_log_view_mode(level=level_filter, logger=logger_filter))
+
+    def _logs_search(self, args: list[str]) -> None:
+        """
+        Search logs and display in view mode.
+
+        Args:
+            args: Command arguments (pattern and filters)
+        """
+        if len(args) < 1:
+            self.shell._append_output("[yellow]Usage: logs search PATTERN [--regex] [--level LEVEL] [--logger LOGGER][/]" + "\n")
+            return
+
+        pattern = args[0]
+        regex = False
+        level_filter = "INFO"  # Default to INFO
+        logger_filter = None
+
+        # Parse optional flags
+        i = 1
+        while i < len(args):
+            if args[i] == "--regex":
+                regex = True
+            elif args[i] == "--level" and i + 1 < len(args):
+                level_filter = args[i + 1].upper()
+                i += 1
+            elif args[i] == "--logger" and i + 1 < len(args):
+                logger_filter = args[i + 1]
+                i += 1
+            i += 1
+
+        # Enter log view mode with search (async)
+        asyncio.create_task(
+            self.shell._enter_log_view_mode(
+                level=level_filter,
+                logger=logger_filter,
+                search_pattern=pattern,
+                search_regex=regex,
+            )
+        )
 
     def _logs_tail(self, args: list[str]) -> None:
         """

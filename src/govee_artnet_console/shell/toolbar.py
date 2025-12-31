@@ -170,10 +170,50 @@ class ToolbarManager:
         parts.extend(fit_line(line1, width))
         parts.append((S("toolbar"), "\n"))
 
-        # Line 2: Health + server + updated (or log tail status if in log tail mode)
+        # Line 2: Health + server + updated (or special mode status)
         line2: list[tuple[str, str]] = []
 
-        if self.shell.in_log_tail_mode and self.shell.log_tail_controller:
+        if self.shell.in_log_view_mode and self.shell.log_view_controller:
+            # Show log view status
+            level_display = self.shell.log_view_controller.level_filter or "ALL"
+            page_num = self.shell.log_view_controller.current_page + 1
+            total_pages = self.shell.log_view_controller.total_pages
+
+            line2.append((S("toolbar-info"), f"Logs View: Page {page_num}/{total_pages}"))
+
+            # Show level filter
+            line2.append((S("toolbar-info"), " │ Level: "))
+            line2.append((S("toolbar-info"), level_display))
+
+            # Show logger filter if set
+            if self.shell.log_view_controller.logger_filter:
+                logger_display = self.shell.log_view_controller.logger_filter
+                if len(logger_display) > 20:
+                    logger_display = logger_display[:17] + "…"
+                line2.append((S("toolbar-info"), " │ Logger: "))
+                line2.append((S("toolbar-info"), logger_display))
+
+            # Show search pattern if set
+            if self.shell.log_view_controller.search_pattern:
+                search_display = self.shell.log_view_controller.search_pattern
+                if len(search_display) > 20:
+                    search_display = search_display[:17] + "…"
+                regex_indicator = " (regex)" if self.shell.log_view_controller.search_regex else ""
+                line2.append((S("toolbar-info"), " │ Search: \""))
+                line2.append((S("toolbar-info"), f"{search_display}\"{regex_indicator}"))
+
+            # Show follow mode status
+            if self.shell.log_view_controller.follow_mode:
+                follow_style = S("status-healthy")
+                line2.append((S("toolbar-info"), " │ Follow: "))
+                line2.append((follow_style, "ON"))
+
+            # Show error if present
+            if self.shell.log_view_controller.error_message:
+                line2.append((S("toolbar-info"), " │ "))
+                line2.append((S("status-degraded"), f"⚠ {self.shell.log_view_controller.error_message[:20]}"))
+
+        elif self.shell.in_log_tail_mode and self.shell.log_tail_controller:
             # Show log tail status instead
             state = self.shell.log_tail_controller.state
             if state == ConnectionState.CONNECTED:

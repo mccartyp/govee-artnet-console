@@ -4,6 +4,7 @@ This module contains controllers for real-time features:
 - ConnectionState: WebSocket connection state enum
 - LogTailController: Real-time log streaming via WebSocket
 - WatchController: Periodic refresh of watch targets
+- LogViewController: Paginated log viewing with filtering and search
 """
 
 from __future__ import annotations
@@ -482,6 +483,524 @@ class WatchController:
 
                 # Wait for next refresh
                 await asyncio.sleep(self.refresh_interval)
+
+        except asyncio.CancelledError:
+            pass
+
+
+class LogViewController:
+    """
+    Controller for paginated log viewing with filtering and search.
+
+    Features:
+    - Paginated log display with navigation (PgUp/PgDn, Home/End)
+    - Level filtering (DEBUG, INFO, WARNING, ERROR, CRITICAL, ALL)
+    - Logger name filtering (prefix match)
+    - Search mode with pattern matching and regex support
+    - Auto-refresh every 5 seconds
+    - Follow mode to track newest logs
+    - Modal input overlays for filters and search
+    """
+
+    # Auto-refresh interval
+    REFRESH_INTERVAL = 5.0  # 5 seconds
+
+    def __init__(self, app: Application, log_view_buffer: Buffer, shell: GoveeShell):
+        """
+        Initialize the log view controller.
+
+        Args:
+            app: The prompt_toolkit Application instance
+            log_view_buffer: Buffer to display log view output
+            shell: Reference to GoveeShell instance for API calls
+        """
+        self.app = app
+        self.log_view_buffer = log_view_buffer
+        self.shell = shell
+
+        # Pagination state
+        self.current_page = 0
+        self.total_pages = 0
+        self.logs_per_page = 50  # Will be recalculated based on terminal height
+        self.total_logs = 0
+        self.current_logs: list[dict] = []
+
+        # Filter state
+        self.level_filter: Optional[str] = "INFO"  # Default: INFO (excludes DEBUG)
+        self.logger_filter: Optional[str] = None
+
+        # Search state
+        self.search_pattern: Optional[str] = None
+        self.search_regex: bool = False
+
+        # Follow mode
+        self.follow_mode: bool = False
+
+        # Error state
+        self.error_message: Optional[str] = None
+
+        # Auto-refresh task
+        self.refresh_task: Optional[asyncio.Task] = None
+        self._should_refresh = False
+
+        # Modal state
+        self.in_modal = False
+        self.modal_type: Optional[str] = None  # 'filter', 'search', 'help'
+        self.modal_input: str = ""  # Current modal input text
+        self.modal_cursor_pos: int = 0  # Cursor position in modal input
+
+    @property
+    def is_active(self) -> bool:
+        """Check if log view is currently active."""
+        return self.refresh_task is not None and not self.refresh_task.done()
+
+    @property
+    def current_offset(self) -> int:
+        """Calculate current offset based on page number."""
+        return self.current_page * self.logs_per_page
+
+    @property
+    def is_last_page(self) -> bool:
+        """Check if currently on the last page."""
+        return self.total_pages > 0 and self.current_page == self.total_pages - 1
+
+    def calculate_logs_per_page(self) -> int:
+        """Calculate how many logs fit per page based on terminal height."""
+        import shutil
+        terminal_height = shutil.get_terminal_size(fallback=(80, 24)).lines
+        # Reserve: toolbar (3) + prompt (1) + separator (1) = 5 lines
+        return max(10, terminal_height - 5)
+
+    async def start(
+        self,
+        level: Optional[str] = "INFO",
+        logger: Optional[str] = None,
+        search_pattern: Optional[str] = None,
+        search_regex: bool = False,
+    ) -> None:
+        """
+        Start log view mode.
+
+        Args:
+            level: Initial level filter (INFO, WARNING, ERROR, CRITICAL, or None for ALL)
+            logger: Logger name filter (prefix match)
+            search_pattern: Search pattern (for search mode)
+            search_regex: Whether search pattern is regex
+        """
+        if self.is_active:
+            return
+
+        # Set initial filters
+        self.level_filter = level
+        self.logger_filter = logger
+        self.search_pattern = search_pattern
+        self.search_regex = search_regex
+
+        # Calculate logs per page
+        self.logs_per_page = self.calculate_logs_per_page()
+
+        # Initial load - show loading message
+        self._show_loading()
+
+        # Fetch initial logs
+        await self._fetch_logs()
+
+        # Start on last page
+        if self.total_pages > 0:
+            self.current_page = self.total_pages - 1
+
+        # Render initial view
+        await self._render()
+
+        # Start auto-refresh
+        self._should_refresh = True
+        self.refresh_task = asyncio.create_task(self._refresh_loop())
+
+    async def stop(self) -> None:
+        """Stop log view mode and cleanup."""
+        self._should_refresh = False
+
+        # Cancel refresh task
+        if self.refresh_task and not self.refresh_task.done():
+            self.refresh_task.cancel()
+            try:
+                await self.refresh_task
+            except asyncio.CancelledError:
+                pass
+
+        self.refresh_task = None
+
+    def cycle_level_filter(self) -> None:
+        """Cycle through level filters: INFO → WARNING → ERROR → CRITICAL → ALL → INFO."""
+        levels = ["INFO", "WARNING", "ERROR", "CRITICAL", None]  # None = ALL
+        try:
+            current_idx = levels.index(self.level_filter)
+            next_idx = (current_idx + 1) % len(levels)
+            self.level_filter = levels[next_idx]
+        except ValueError:
+            self.level_filter = "INFO"
+
+        # Reset to first page when filter changes
+        self.current_page = 0
+
+    def set_logger_filter(self, logger: Optional[str]) -> None:
+        """
+        Set logger filter.
+
+        Args:
+            logger: Logger name prefix or None to clear
+        """
+        self.logger_filter = logger.strip() if logger and logger.strip() else None
+        # Reset to first page when filter changes
+        self.current_page = 0
+
+    def set_search_pattern(self, pattern: Optional[str], regex: bool = False) -> None:
+        """
+        Set search pattern.
+
+        Args:
+            pattern: Search pattern or None to clear
+            regex: Whether pattern is regex
+        """
+        self.search_pattern = pattern.strip() if pattern and pattern.strip() else None
+        self.search_regex = regex
+        # Reset to first page when search changes
+        self.current_page = 0
+
+    def toggle_follow_mode(self) -> None:
+        """Toggle follow mode on/off."""
+        self.follow_mode = not self.follow_mode
+        if self.follow_mode and self.total_pages > 0:
+            # Jump to last page when enabling follow
+            self.current_page = self.total_pages - 1
+
+    def navigate_page(self, direction: str) -> None:
+        """
+        Navigate to a different page.
+
+        Args:
+            direction: 'next', 'prev', 'first', 'last'
+        """
+        old_page = self.current_page
+
+        if direction == "next":
+            self.current_page = min(self.current_page + 1, max(0, self.total_pages - 1))
+        elif direction == "prev":
+            self.current_page = max(0, self.current_page - 1)
+        elif direction == "first":
+            self.current_page = 0
+        elif direction == "last":
+            self.current_page = max(0, self.total_pages - 1)
+
+        # Disable follow mode if navigating away from last page
+        if self.follow_mode and not self.is_last_page:
+            self.follow_mode = False
+
+    async def refresh(self) -> None:
+        """Manually refresh current page."""
+        await self._fetch_logs()
+        await self._render()
+
+    def show_filter_modal(self) -> None:
+        """Show modal dialog for logger filter input."""
+        self.in_modal = True
+        self.modal_type = "filter"
+        self.modal_input = self.logger_filter or ""
+        self.modal_cursor_pos = len(self.modal_input)
+
+    def show_search_modal(self) -> None:
+        """Show modal dialog for search pattern input."""
+        self.in_modal = True
+        self.modal_type = "search"
+        self.modal_input = self.search_pattern or ""
+        self.modal_cursor_pos = len(self.modal_input)
+
+    def show_help_modal(self) -> None:
+        """Show help modal with keybindings."""
+        self.in_modal = True
+        self.modal_type = "help"
+
+    def close_modal(self, accept: bool = False) -> None:
+        """
+        Close the current modal.
+
+        Args:
+            accept: If True, apply the modal input; if False, cancel
+        """
+        if not self.in_modal:
+            return
+
+        if accept:
+            if self.modal_type == "filter":
+                self.set_logger_filter(self.modal_input if self.modal_input else None)
+            elif self.modal_type == "search":
+                # For search modal, also ask about regex mode
+                # For now, keep current regex setting
+                self.set_search_pattern(self.modal_input if self.modal_input else None, self.search_regex)
+
+        self.in_modal = False
+        self.modal_type = None
+        self.modal_input = ""
+        self.modal_cursor_pos = 0
+
+    def modal_add_char(self, char: str) -> None:
+        """Add character to modal input at cursor position."""
+        self.modal_input = (
+            self.modal_input[:self.modal_cursor_pos] +
+            char +
+            self.modal_input[self.modal_cursor_pos:]
+        )
+        self.modal_cursor_pos += 1
+
+    def modal_backspace(self) -> None:
+        """Delete character before cursor in modal input."""
+        if self.modal_cursor_pos > 0:
+            self.modal_input = (
+                self.modal_input[:self.modal_cursor_pos - 1] +
+                self.modal_input[self.modal_cursor_pos:]
+            )
+            self.modal_cursor_pos -= 1
+
+    def modal_move_cursor(self, direction: str) -> None:
+        """Move cursor in modal input."""
+        if direction == "left":
+            self.modal_cursor_pos = max(0, self.modal_cursor_pos - 1)
+        elif direction == "right":
+            self.modal_cursor_pos = min(len(self.modal_input), self.modal_cursor_pos + 1)
+        elif direction == "home":
+            self.modal_cursor_pos = 0
+        elif direction == "end":
+            self.modal_cursor_pos = len(self.modal_input)
+
+    def _show_loading(self) -> None:
+        """Show loading message."""
+        loading_msg = "\033[1;36m╔═══════════════════════════════════════════════════════════╗\033[0m\n"
+        loading_msg += "\033[1;36m║                     Logs View Mode                        ║\033[0m\n"
+        loading_msg += "\033[1;36m╚═══════════════════════════════════════════════════════════╝\033[0m\n"
+        loading_msg += "\033[2mLoading logs...\033[0m\n"
+
+        self.log_view_buffer.set_document(
+            Document(text=loading_msg, cursor_position=0),
+            bypass_readonly=True
+        )
+        self.app.invalidate()
+
+    async def _fetch_logs(self) -> None:
+        """Fetch logs from API based on current filters and pagination."""
+        if not self.shell.client:
+            self.error_message = "Not connected"
+            return
+
+        try:
+            # Build API parameters
+            params = {
+                "lines": self.logs_per_page,
+                "offset": self.current_offset,
+            }
+
+            # Add filters
+            if self.level_filter:
+                params["level"] = self.level_filter
+            if self.logger_filter:
+                params["logger"] = self.logger_filter
+
+            # Determine endpoint
+            if self.search_pattern:
+                # Use search endpoint
+                endpoint = "/logs/search"
+                params = {
+                    "pattern": self.search_pattern,
+                    "regex": self.search_regex,
+                    "lines": self.logs_per_page,
+                }
+                # Note: search endpoint doesn't support offset, level, logger in current API
+                # We'll need to filter client-side or enhance API later
+            else:
+                # Use regular logs endpoint
+                endpoint = "/logs"
+
+            # Make API call
+            response = self.shell.client.get(endpoint, params=params, timeout=5.0)
+            response.raise_for_status()
+            data = response.json()
+
+            # Update state
+            if self.search_pattern:
+                # Search endpoint returns count, not total
+                self.total_logs = data.get("count", 0)
+                self.current_logs = data.get("logs", [])
+                # For search, we get all results at once, no pagination
+                self.total_pages = 1
+            else:
+                # Regular endpoint returns total
+                self.total_logs = data.get("total", 0)
+                self.current_logs = data.get("logs", [])
+                # Calculate total pages
+                self.total_pages = (self.total_logs + self.logs_per_page - 1) // self.logs_per_page if self.total_logs > 0 else 0
+
+            # Clear error on success
+            self.error_message = None
+
+        except Exception as exc:
+            self.error_message = str(exc)
+            self.current_logs = []
+            self.total_pages = 0
+
+    async def _render(self) -> None:
+        """Render current page of logs to buffer."""
+        output = ""
+
+        # Show logs
+        if not self.current_logs:
+            if self.error_message:
+                output += f"\033[31mError loading logs: {self.error_message}\033[0m\n"
+            else:
+                output += "\033[2mNo logs found matching current filters\033[0m\n"
+        else:
+            for log_entry in self.current_logs:
+                # Format timestamp: ISO to "Jan 15 14:35:42"
+                timestamp = log_entry.get("timestamp", "")
+                formatted_time = self._format_timestamp(timestamp)
+
+                level = log_entry.get("level", "INFO")
+                logger_name = log_entry.get("logger", "")
+                message = log_entry.get("message", "")
+
+                # Color code by level
+                level_colors = {
+                    "DEBUG": "\033[36m",      # Cyan
+                    "INFO": "\033[32m",       # Green
+                    "WARNING": "\033[33m",    # Yellow
+                    "ERROR": "\033[31m",      # Red
+                    "CRITICAL": "\033[1;31m", # Bold red
+                }
+                level_color = level_colors.get(level, "\033[37m")
+                reset = "\033[0m"
+                dim = "\033[2m"
+                cyan = "\033[36m"
+
+                formatted_line = (
+                    f"{dim}{formatted_time}{reset} "
+                    f"{level_color}{level:<8}{reset} "
+                    f"{cyan}{logger_name}{reset}: "
+                    f"{message}\n"
+                )
+                output += formatted_line
+
+        # Add modal overlay if in modal mode
+        if self.in_modal:
+            output += self._render_modal()
+
+        # Update buffer
+        self.log_view_buffer.set_document(
+            Document(text=output, cursor_position=0),
+            bypass_readonly=True
+        )
+        self.app.invalidate()
+
+    def _render_modal(self) -> str:
+        """Render modal dialog overlay."""
+        modal_output = "\n\n"
+
+        if self.modal_type == "filter":
+            modal_output += "\033[1;36m╔═══════════════════════════════════════════════════════════╗\033[0m\n"
+            modal_output += "\033[1;36m║                    Logger Filter                          ║\033[0m\n"
+            modal_output += "\033[1;36m╠═══════════════════════════════════════════════════════════╣\033[0m\n"
+            modal_output += "\033[0m║ Enter logger name prefix (e.g., govee.api)                ║\033[0m\n"
+            modal_output += "\033[0m║ Leave empty to clear filter                               ║\033[0m\n"
+            modal_output += "\033[1;36m╠═══════════════════════════════════════════════════════════╣\033[0m\n"
+            modal_output += f"\033[0m║ {self.modal_input:<57} ║\033[0m\n"
+            modal_output += "\033[1;36m╠═══════════════════════════════════════════════════════════╣\033[0m\n"
+            modal_output += "\033[2m║ Enter: Accept  │  Esc: Cancel                             ║\033[0m\n"
+            modal_output += "\033[1;36m╚═══════════════════════════════════════════════════════════╝\033[0m\n"
+
+        elif self.modal_type == "search":
+            modal_output += "\033[1;36m╔═══════════════════════════════════════════════════════════╗\033[0m\n"
+            modal_output += "\033[1;36m║                    Search Pattern                         ║\033[0m\n"
+            modal_output += "\033[1;36m╠═══════════════════════════════════════════════════════════╣\033[0m\n"
+            modal_output += "\033[0m║ Enter search pattern                                      ║\033[0m\n"
+            modal_output += "\033[0m║ Leave empty to clear search                               ║\033[0m\n"
+            regex_status = "ON" if self.search_regex else "OFF"
+            modal_output += f"\033[0m║ Regex mode: {regex_status:<44} ║\033[0m\n"
+            modal_output += "\033[1;36m╠═══════════════════════════════════════════════════════════╣\033[0m\n"
+            modal_output += f"\033[0m║ {self.modal_input:<57} ║\033[0m\n"
+            modal_output += "\033[1;36m╠═══════════════════════════════════════════════════════════╣\033[0m\n"
+            modal_output += "\033[2m║ Enter: Accept  │  Esc: Cancel  │  Ctrl+R: Toggle Regex   ║\033[0m\n"
+            modal_output += "\033[1;36m╚═══════════════════════════════════════════════════════════╝\033[0m\n"
+
+        elif self.modal_type == "help":
+            modal_output += "\033[1;36m╔═══════════════════════════════════════════════════════════╗\033[0m\n"
+            modal_output += "\033[1;36m║                 Logs View - Help                          ║\033[0m\n"
+            modal_output += "\033[1;36m╠═══════════════════════════════════════════════════════════╣\033[0m\n"
+            modal_output += "\033[1;33m║ Navigation:                                               ║\033[0m\n"
+            modal_output += "\033[0m║   PgUp/PgDn       Previous/Next page                      ║\033[0m\n"
+            modal_output += "\033[0m║   Home/End        First/Last page                         ║\033[0m\n"
+            modal_output += "\033[1;36m╠═══════════════════════════════════════════════════════════╣\033[0m\n"
+            modal_output += "\033[1;33m║ Filters:                                                  ║\033[0m\n"
+            modal_output += "\033[0m║   l               Cycle log level filter                  ║\033[0m\n"
+            modal_output += "\033[0m║                   (INFO→WARNING→ERROR→CRITICAL→ALL)       ║\033[0m\n"
+            modal_output += "\033[0m║   f               Set logger filter (prefix match)        ║\033[0m\n"
+            modal_output += "\033[0m║   /               Edit search pattern                     ║\033[0m\n"
+            modal_output += "\033[0m║   c               Clear logger filter                     ║\033[0m\n"
+            modal_output += "\033[1;36m╠═══════════════════════════════════════════════════════════╣\033[0m\n"
+            modal_output += "\033[1;33m║ Actions:                                                  ║\033[0m\n"
+            modal_output += "\033[0m║   r               Manual refresh current page             ║\033[0m\n"
+            modal_output += "\033[0m║   Space           Toggle follow mode (auto-jump to last)  ║\033[0m\n"
+            modal_output += "\033[0m║   ?               Show this help                          ║\033[0m\n"
+            modal_output += "\033[0m║   q/Esc           Exit logs view                          ║\033[0m\n"
+            modal_output += "\033[1;36m╠═══════════════════════════════════════════════════════════╣\033[0m\n"
+            modal_output += "\033[1;33m║ Info:                                                     ║\033[0m\n"
+            modal_output += "\033[0m║   Auto-refresh:   Every 5 seconds                         ║\033[0m\n"
+            modal_output += "\033[0m║   Follow mode:    OFF by default, toggle with Space       ║\033[0m\n"
+            modal_output += "\033[0m║   Level filter:   Additive (ERROR shows ERROR+CRITICAL)   ║\033[0m\n"
+            modal_output += "\033[1;36m╠═══════════════════════════════════════════════════════════╣\033[0m\n"
+            modal_output += "\033[2m║ Press any key to close                                    ║\033[0m\n"
+            modal_output += "\033[1;36m╚═══════════════════════════════════════════════════════════╝\033[0m\n"
+
+        return modal_output
+
+    def _format_timestamp(self, iso_timestamp: str) -> str:
+        """
+        Format ISO timestamp to 'Jan 15 14:35:42'.
+
+        Args:
+            iso_timestamp: ISO format timestamp like '2025-01-15T14:35:42.123Z'
+
+        Returns:
+            Formatted timestamp string
+        """
+        try:
+            # Parse ISO timestamp
+            dt = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
+            # Format as "Jan 15 14:35:42"
+            return dt.strftime("%b %d %H:%M:%S")
+        except Exception:
+            # Fallback to original if parsing fails
+            return iso_timestamp[:19] if len(iso_timestamp) >= 19 else iso_timestamp
+
+    async def _refresh_loop(self) -> None:
+        """Auto-refresh loop - refresh every REFRESH_INTERVAL seconds."""
+        try:
+            while self._should_refresh:
+                await asyncio.sleep(self.REFRESH_INTERVAL)
+
+                # Save current state
+                old_total_pages = self.total_pages
+                old_page = self.current_page
+
+                # Fetch updated logs
+                await self._fetch_logs()
+
+                # Handle follow mode
+                if self.follow_mode and self.total_pages > 0:
+                    # Jump to last page
+                    self.current_page = self.total_pages - 1
+                elif old_page >= self.total_pages and self.total_pages > 0:
+                    # Current page no longer exists, go to last page
+                    self.current_page = self.total_pages - 1
+
+                # Re-render
+                await self._render()
 
         except asyncio.CancelledError:
             pass

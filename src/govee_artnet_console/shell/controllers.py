@@ -1026,7 +1026,9 @@ class WatchController:
 
                     # Execute command based on target
                     if self.watch_target == "devices":
-                        self.shell.device_handler._show_devices_simple()
+                        # Check if this is detailed device monitor or simple device list
+                        # "devices" refers to the detailed monitor, use simple list otherwise
+                        self.shell.monitoring_handler._monitor_devices()
                     elif self.watch_target == "mappings":
                         self.shell.mapping_handler._show_mappings_list()
                     elif self.watch_target == "logs":

@@ -915,11 +915,11 @@ class LogViewController:
 
         # Allocate remaining width proportionally
         logger_width = max(15, int(available_width * 0.20))
-        message_width = max(20, int(available_width * 0.35))
+        message_width = max(20, int(available_width * 0.25))
 
-        # Extra field gets remaining space or 20% if multiple extra fields
+        # Extra field gets remaining space or 35% if multiple extra fields
         if extra_field_names:
-            extra_field_width = max(15, int(available_width * 0.25))
+            extra_field_width = max(15, int(available_width * 0.35))
         else:
             extra_field_width = 0
 
@@ -976,14 +976,23 @@ class LogViewController:
         # Separator
         output += "\033[1;36m├─"
         output += "─" * timestamp_width + "─┼"
-        output += "─" * level_width + "─┼"
-        output += "─" * logger_width + "─┼"
-        output += "─" * message_width + "─"
+        output += "─" + "─" * level_width + "─┼"
+        output += "─" + "─" * logger_width + "─┼"
+        output += "─" + "─" * message_width + "─"
 
         for _ in extra_field_names:
             output += "┼─" + "─" * extra_field_width + "─"
 
         output += "┤\033[0m\n"
+
+        # Calculate available lines for rendering
+        # Get terminal height
+        terminal_height = shutil.get_terminal_size(fallback=(80, 24)).lines
+        # Reserve: toolbar (3) + prompt (1) + separator (1) + table header (3) + bottom border (1) = 9 lines
+        max_content_lines = max(10, terminal_height - 9)
+
+        # Track lines rendered
+        lines_rendered = 0
 
         # Data rows
         for log_entry in self.current_logs:
@@ -1014,6 +1023,11 @@ class LogViewController:
                 max([len(lines) for lines in extra_lines_dict.values()]) if extra_lines_dict else 1,
                 1
             )
+
+            # Check if we have enough space to render this entry
+            # If adding this entry would exceed available lines, stop rendering entries
+            if lines_rendered + max_lines > max_content_lines:
+                break
 
             # Pad all columns to same height
             while len(time_lines) < max_lines:
@@ -1089,12 +1103,15 @@ class LogViewController:
 
                 output += "\033[1;36m│\033[0m\n"
 
+            # Update line counter
+            lines_rendered += max_lines
+
         # Bottom border
         output += "\033[1;36m└─"
         output += "─" * timestamp_width + "─┴"
-        output += "─" * level_width + "─┴"
-        output += "─" * logger_width + "─┴"
-        output += "─" * message_width + "─"
+        output += "─" + "─" * level_width + "─┴"
+        output += "─" + "─" * logger_width + "─┴"
+        output += "─" + "─" * message_width + "─"
 
         for _ in extra_field_names:
             output += "┴─" + "─" * extra_field_width + "─"

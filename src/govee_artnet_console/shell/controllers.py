@@ -242,6 +242,7 @@ class LogTailController:
                             level = data.get("level", "INFO")
                             logger_name = data.get("logger", "")
                             message_text = data.get("message", "")
+                            extra = data.get("extra", {})
 
                             # Format with colors (ANSI codes)
                             # Timestamp: dim white
@@ -259,6 +260,7 @@ class LogTailController:
                             reset = "\033[0m"
                             dim = "\033[2m"
                             cyan = "\033[36m"
+                            magenta = "\033[35m"
 
                             formatted_line = (
                                 f"{dim}{timestamp}{reset} "
@@ -266,6 +268,19 @@ class LogTailController:
                                 f"{cyan}{logger_name}{reset}: "
                                 f"{message_text}\n"
                             )
+
+                            # Add extras on a second line with visual connection
+                            if extra and isinstance(extra, dict):
+                                # Format extras as key=value pairs
+                                extra_items = [f"{k}={v}" for k, v in extra.items()]
+                                extra_text = " ".join(extra_items)
+
+                                # Add visual connector with indentation
+                                # Use box-drawing character and color to show relationship
+                                formatted_line += (
+                                    f"{dim}  ╰─► {reset}"
+                                    f"{magenta}{extra_text}{reset}\n"
+                                )
 
                             self.append_log_line(formatted_line)
 

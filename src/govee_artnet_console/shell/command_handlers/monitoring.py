@@ -439,7 +439,7 @@ class MonitoringCommandHandler(CommandHandler):
             total_devices = len(devices_data) if isinstance(devices_data, list) else 0
             online_devices = sum(1 for d in devices_data if not d.get("offline")) if isinstance(devices_data, list) else 0
             offline_devices = sum(1 for d in devices_data if d.get("offline")) if isinstance(devices_data, list) else 0
-            total_mappings = len(mappings_data) if isinstance(mappings_data, list) else 0
+            total_mapped = sum(1 for d in devices_data if d.get("mapping_count", 0) > 0) if isinstance(devices_data, list) else 0
 
             # Calculate dynamic width based on devices table
             # Table columns: ID(17) + Status(6) + IP(15) + Model(6) + Name(20) + Last Seen(10) + Maps(4)
@@ -457,7 +457,7 @@ class MonitoringCommandHandler(CommandHandler):
 
             # Statistics Summary Cards using ANSI box drawing
             # Calculate padding for stats cards to center them
-            # Make boxes 12 chars wide to fit "Mappings" (8 chars) with padding
+            # Make boxes 12 chars wide to fit "Devices" (7 chars) with padding
             stats_width = 4 * 12 + 3 * 2  # 4 boxes of 12 chars + 3 gaps of 2 spaces = 54 chars
             stats_padding = (INNER_WIDTH - stats_width) // 2
 
@@ -467,12 +467,12 @@ class MonitoringCommandHandler(CommandHandler):
             self.shell._append_output(stats_line + "\n")
 
             stats_line = "[bold cyan]│[/]" + " " * stats_padding
-            stats_line += f"[cyan]│ Devices  │[/]  [green]│  Online  │[/]  [red]│ Offline  │[/]  [blue]│ Mappings │[/]"
+            stats_line += f"[cyan]│ Devices  │[/]  [green]│  Online  │[/]  [red]│ Offline  │[/]  [blue]│  Mapped  │[/]"
             stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "[bold cyan]│[/]"
             self.shell._append_output(stats_line + "\n")
 
             stats_line = "[bold cyan]│[/]" + " " * stats_padding
-            stats_line += f"[cyan]│   {total_devices:4d}   │[/]  [green]│   {online_devices:4d}   │[/]  [red]│   {offline_devices:4d}   │[/]  [blue]│   {total_mappings:4d}   │[/]"
+            stats_line += f"[cyan]│   {total_devices:4d}   │[/]  [green]│   {online_devices:4d}   │[/]  [red]│   {offline_devices:4d}   │[/]  [blue]│   {total_mapped:4d}   │[/]"
             stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "[bold cyan]│[/]"
             self.shell._append_output(stats_line + "\n")
 

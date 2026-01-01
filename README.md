@@ -75,13 +75,7 @@ sudo dpkg -i --force-depends govee-artnet-console_*.deb
 - ✅ Ubuntu 24.04 LTS (via pip fallback)
 - ✅ Debian 13 (Trixie)
 
-#### Option 2: Install from PyPI
-
-```bash
-pip install govee-artnet-console
-```
-
-#### Option 3: Install from Source
+#### Option 2: Install from Source
 
 ```bash
 # Clone the repository

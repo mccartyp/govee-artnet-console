@@ -138,11 +138,16 @@ jobs:
           echo "⚠ dpkg installation failed with exit code: $DPKG_EXIT"
           echo "Trying to fix dependencies with apt-get install -f..."
 
-          if ${{ matrix.use_sudo && 'sudo' || '' }} apt-get install -f -y 2>&1; then
-            echo "✓ Package installed successfully after fixing dependencies"
+          ${{ matrix.use_sudo && 'sudo' || '' }} apt-get install -f -y 2>&1
+
+          # Check if package is still installed after apt-get install -f
+          # apt-get may REMOVE the package if dependencies can't be satisfied!
+          echo ""
+          if dpkg -l govee-artnet-console 2>/dev/null | grep -q '^ii'; then
+            echo "✓ Package successfully installed and configured"
             echo "status=success" >> $GITHUB_OUTPUT
           else
-            echo "⚠ apt-get install -f failed"
+            echo "⚠ Package was removed by apt (dependencies unavailable in repos)"
             echo "Will try pip fallback"
             echo "status=needs_pip" >> $GITHUB_OUTPUT
           fi

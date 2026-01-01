@@ -595,13 +595,13 @@ class MonitoringCommandHandler(CommandHandler):
                     last_seen = device.get("last_seen") or ""
                     mapping_count = device.get("mapping_count", 0) or 0
 
-                    # Status indicator using inline markup (like _monitor_devices)
+                    # Status indicator using Text objects (column styles work with force_terminal)
                     if offline:
-                        status = "[red]● Off[/]"
+                        status = Text("● Off", style="red")
                     elif stale:
-                        status = "[dim]● Stale[/]"
+                        status = Text("● Stale", style="dim")
                     else:
-                        status = "[green]● On[/]"
+                        status = Text("● On", style="green")
 
                     # Format last seen as relative time
                     last_seen_str = "-"
@@ -641,14 +641,14 @@ class MonitoringCommandHandler(CommandHandler):
                     if len(display_id) > 17:
                         display_id = display_id[:14] + "..."
 
-                    # Apply inline markup to all values (column styles don't work with StringIO rendering)
+                    # Use plain values - column styles work with force_terminal rendering
                     devices_table.add_row(
-                        f"[cyan]{display_id}[/]",
+                        display_id,
                         status,
-                        f"[dim]{ip or '-'}[/]",
-                        f"[yellow]{model or '-'}[/]",
-                        f"[green]{name or '-'}[/]",
-                        f"[dim]{last_seen_str}[/]",
+                        ip or "-",
+                        model or "-",
+                        name or "-",
+                        last_seen_str,
                         str(mapping_count),
                     )
 
@@ -659,23 +659,48 @@ class MonitoringCommandHandler(CommandHandler):
                     )
 
                 # Render table to string and wrap with borders
+                # Use force_terminal=True like help command for proper color rendering
                 from io import StringIO
                 from rich.console import Console
+                from prompt_toolkit.document import Document
+                import re
 
                 string_io = StringIO()
-                temp_console = Console(file=string_io, width=INNER_WIDTH - 2, legacy_windows=False)
+                temp_console = Console(file=string_io, width=INNER_WIDTH - 2, legacy_windows=False, force_terminal=True)
                 temp_console.print(devices_table)
                 table_lines = string_io.getvalue().rstrip().split('\n')
 
-                # Output each line wrapped in borders
+                # Output each line wrapped in borders using direct buffer manipulation
+                # (like help command, to avoid double-rendering through _append_output)
                 for line in table_lines:
-                    # Calculate visible width (approximate by removing common ANSI sequences)
-                    import re
+                    # Calculate visible width (remove ANSI codes to measure)
                     visible_line = re.sub(r'\x1b\[[0-9;]*m', '', line)
                     padding_needed = INNER_WIDTH - 2 - len(visible_line)
                     if padding_needed < 0:
                         padding_needed = 0
-                    self.shell._append_output(f"[bold cyan]│[/] {line}{' ' * padding_needed} [bold cyan]│[/]\n")
+
+                    # Render borders with force_terminal
+                    border_buf = StringIO()
+                    border_console = Console(file=border_buf, force_terminal=True, width=self.shell.console.width, legacy_windows=False)
+                    border_console.print(f"[bold cyan]│[/] ", end="")
+                    left_border = border_buf.getvalue()
+
+                    border_buf = StringIO()
+                    border_console = Console(file=border_buf, force_terminal=True, width=self.shell.console.width, legacy_windows=False)
+                    border_console.print(f"{' ' * padding_needed} [bold cyan]│[/]")
+                    right_border = border_buf.getvalue()
+
+                    # Combine and append directly to buffer
+                    full_line = left_border + line + right_border
+                    current_text = self.shell.output_buffer.text
+                    new_text = current_text + full_line
+                    cursor_pos = len(new_text) if self.shell.follow_tail else min(self.shell.output_buffer.cursor_position, len(new_text))
+                    self.shell.output_buffer.set_document(
+                        Document(text=new_text, cursor_position=cursor_pos),
+                        bypass_readonly=True
+                    )
+
+                self.shell.app.invalidate()
 
                 self.shell._append_output("[bold cyan]│[/]" + " " * INNER_WIDTH + "[bold cyan]│[/]\n")
 

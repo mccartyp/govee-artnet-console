@@ -44,6 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More robust timezone conversions for device status timestamps
 - Enhanced test infrastructure with comprehensive mocking capabilities
 
-## [1.0.0] - 2025-12-30
+## [1.0.0] - 2025-12-31
 
 Initial release.

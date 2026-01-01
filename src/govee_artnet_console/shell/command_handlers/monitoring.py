@@ -605,9 +605,10 @@ class MonitoringCommandHandler(CommandHandler):
                     last_seen_str = "-"
                     if last_seen:
                         try:
-                            from datetime import datetime, timezone
+                            from datetime import datetime
                             dt = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
-                            now = datetime.now(timezone.utc)
+                            # Match timezone of the timestamp for accurate comparison
+                            now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
                             delta = now - dt
                             if delta.total_seconds() < 60:
                                 last_seen_str = f"{int(delta.total_seconds())}s ago"
@@ -715,9 +716,10 @@ class MonitoringCommandHandler(CommandHandler):
                 last_seen_str = "-"
                 if last_seen:
                     try:
-                        from datetime import datetime, timezone
+                        from datetime import datetime
                         dt = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
-                        now = datetime.now(timezone.utc)
+                        # Match timezone of the timestamp for accurate comparison
+                        now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
                         delta = now - dt
                         if delta.total_seconds() < 60:
                             last_seen_str = f"{int(delta.total_seconds())}s ago"

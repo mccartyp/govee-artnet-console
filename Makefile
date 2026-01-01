@@ -1,7 +1,7 @@
 .PHONY: help install uninstall deb clean test dev-install
 
 PACKAGE_NAME = govee-artnet-console
-VERSION = 0.1.0
+VERSION = 1.0.1
 PYTHON = python3
 PIP = pip3
 
@@ -14,6 +14,7 @@ LIBDIR = $(PREFIX)/lib/python3.11/site-packages
 DEB_BUILD_DIR = packaging/debian
 DEB_PKG_DIR = $(DEB_BUILD_DIR)/$(PACKAGE_NAME)
 DEB_INSTALL_DIR = $(DEB_PKG_DIR)/usr
+DEB_OUTPUT_DIR = dist
 
 help:
 	@echo "Govee ArtNet Console - Makefile targets:"
@@ -62,7 +63,7 @@ deb: clean
 	@echo "Section: utils" >> $(DEB_PKG_DIR)/DEBIAN/control
 	@echo "Priority: optional" >> $(DEB_PKG_DIR)/DEBIAN/control
 	@echo "Architecture: all" >> $(DEB_PKG_DIR)/DEBIAN/control
-	@echo "Depends: python3 (>= 3.10), python3-httpx (>= 0.27.0), python3-websockets (>= 12.0), python3-yaml (>= 6.0.0), python3-rich (>= 13.0.0), python3-prompt-toolkit (>= 3.0.0)" >> $(DEB_PKG_DIR)/DEBIAN/control
+	@echo "Depends: python3 (>= 3.10), python3-httpx (>= 0.22.0), python3-websockets (>= 12.0), python3-yaml (>= 6.0.0), python3-rich (>= 13.0.0), python3-prompt-toolkit (>= 3.0.0)" >> $(DEB_PKG_DIR)/DEBIAN/control
 	@echo "Maintainer: mccartyp <mccartyp@gmail.com>" >> $(DEB_PKG_DIR)/DEBIAN/control
 	@echo "Description: Interactive CLI console for Govee ArtNet LAN Bridge" >> $(DEB_PKG_DIR)/DEBIAN/control
 	@echo " Provides an interactive shell for managing Govee devices via the" >> $(DEB_PKG_DIR)/DEBIAN/control
@@ -104,10 +105,11 @@ deb: clean
 	@chmod 755 $(DEB_PKG_DIR)/DEBIAN
 
 	@# Build package
-	@dpkg-deb --build $(DEB_PKG_DIR) .
+	@mkdir -p $(DEB_OUTPUT_DIR)
+	@dpkg-deb --build $(DEB_PKG_DIR) $(DEB_OUTPUT_DIR)
 	@echo ""
 	@echo "Debian package built successfully!"
-	@ls -lh $(PACKAGE_NAME)_$(VERSION)_all.deb
+	@ls -lh $(DEB_OUTPUT_DIR)/$(PACKAGE_NAME)_$(VERSION)_all.deb
 
 # Clean build artifacts
 clean:
@@ -116,6 +118,7 @@ clean:
 	rm -rf dist/
 	rm -rf *.egg-info/
 	rm -rf $(DEB_BUILD_DIR)
+	rm -rf $(DEB_OUTPUT_DIR)
 	rm -f $(PACKAGE_NAME)_*.deb
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete

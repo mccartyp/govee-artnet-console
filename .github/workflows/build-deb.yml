@@ -1,0 +1,151 @@
+name: Build Debian Package
+
+on:
+  push:
+    branches: [ "main" ]
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:  # Allow manual triggers
+
+permissions:
+  contents: write  # Required for creating releases
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-22.04  # Build on oldest supported distro
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set version from tag or pyproject.toml
+      id: version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          # Extract version from tag (remove 'v' prefix)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Building release version: $VERSION"
+        else
+          # Extract version from pyproject.toml
+          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          # Add dev suffix with commit SHA for non-release builds
+          VERSION="${VERSION}-dev+${GITHUB_SHA::8}"
+          echo "Building development version: $VERSION"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Update Makefile version
+      run: |
+        sed -i "s/^VERSION = .*/VERSION = ${{ steps.version.outputs.version }}/" Makefile
+        echo "Updated Makefile VERSION to: ${{ steps.version.outputs.version }}"
+
+    - name: Build DEB package
+      run: make deb
+
+    - name: List built package
+      run: |
+        echo "Built package:"
+        ls -lh dist/*.deb
+
+    - name: Upload DEB artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: debian-package-${{ steps.version.outputs.version }}
+        path: dist/*.deb
+        retention-days: 90
+
+    # For tagged releases only: Create GitHub Release
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/*.deb
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+
+  test-installation:
+    needs: build-deb
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            name: "Ubuntu 22.04 LTS"
+          - os: ubuntu-24.04
+            name: "Ubuntu 24.04 LTS"
+          - os: ubuntu-latest
+            container: "debian:trixie"
+            name: "Debian 13 (Trixie)"
+
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+
+    steps:
+    - name: Set version from tag or use default
+      id: version
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          VERSION="1.0.1-dev+${GITHUB_SHA::8}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Download DEB artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: debian-package-${{ steps.version.outputs.version }}
+        path: ./artifacts
+
+    - name: List downloaded artifacts
+      run: |
+        echo "Testing on: ${{ matrix.name }}"
+        ls -lh ./artifacts/
+      shell: bash
+
+    - name: Install package dependencies (Debian/Ubuntu)
+      run: |
+        apt-get update
+        apt-get install -y python3 python3-pip
+      shell: bash
+
+    - name: Test DEB installation
+      id: install
+      continue-on-error: true
+      run: |
+        echo "Attempting to install .deb package..."
+        dpkg -i ./artifacts/*.deb || true
+
+        # Check if dependencies are satisfied
+        if apt-get install -f -y; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "✓ Package installed successfully with apt dependencies"
+        else
+          echo "status=needs_pip" >> $GITHUB_OUTPUT
+          echo "⚠ Apt dependencies not fully available, will try pip fallback"
+        fi
+      shell: bash
+
+    - name: Install Python dependencies via pip (if needed)
+      if: steps.install.outputs.status == 'needs_pip'
+      run: |
+        echo "Installing Python dependencies via pip..."
+        dpkg -i --force-depends ./artifacts/*.deb
+        pip3 install httpx>=0.22.0 websockets>=12.0 pyyaml>=6.0.0 rich>=13.0.0 prompt-toolkit>=3.0.0 --break-system-packages
+      shell: bash
+
+    - name: Verify installation
+      run: |
+        echo "Verifying govee-artnet-console is installed..."
+        which govee-artnet-console
+        govee-artnet-console --version || govee-artnet-console --help | head -5
+        echo "✓ Installation verified on ${{ matrix.name }}"
+      shell: bash
+
+    - name: Test uninstallation
+      run: |
+        echo "Testing package removal..."
+        dpkg -r govee-artnet-console
+        echo "✓ Package removed successfully"
+      shell: bash

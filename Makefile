@@ -1,7 +1,7 @@
 .PHONY: help install uninstall deb clean test dev-install
 
 PACKAGE_NAME = govee-artnet-console
-VERSION = 1.0.1
+VERSION = 1.0.2
 PYTHON = python3
 PIP = pip3
 

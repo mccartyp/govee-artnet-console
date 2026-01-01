@@ -1,0 +1,64 @@
+name: Build Debian Package
+
+on:
+  push:
+    branches: [ "main" ]
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:  # Allow manual triggers
+
+permissions:
+  contents: write  # Required for creating releases
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-22.04  # Build on oldest supported distro
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set version from tag or pyproject.toml
+      id: version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          # Extract version from tag (remove 'v' prefix)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Building release version: $VERSION"
+        else
+          # Extract version from pyproject.toml
+          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          # Add dev suffix with commit SHA for non-release builds
+          VERSION="${VERSION}-dev+${GITHUB_SHA::8}"
+          echo "Building development version: $VERSION"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Update Makefile version
+      run: |
+        sed -i "s/^VERSION = .*/VERSION = ${{ steps.version.outputs.version }}/" Makefile
+        echo "Updated Makefile VERSION to: ${{ steps.version.outputs.version }}"
+
+    - name: Build DEB package
+      run: make deb
+
+    - name: List built package
+      run: |
+        echo "Built package:"
+        ls -lh dist/*.deb
+
+    - name: Upload DEB artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: debian-package-${{ steps.version.outputs.version }}
+        path: dist/*.deb
+        retention-days: 90
+
+    # For tagged releases only: Create GitHub Release
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/*.deb
+        draft: false
+        prerelease: false
+        generate_release_notes: true

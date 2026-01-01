@@ -110,8 +110,8 @@ jobs:
         echo "=== Validating .deb package ==="
         dpkg-deb --info ./artifacts/*.deb || echo "ERROR: Invalid .deb package"
         echo ""
-        echo "=== Package contents ==="
-        dpkg-deb --contents ./artifacts/*.deb | head -20
+        echo "=== Package contents (first 20 files) ==="
+        dpkg-deb --contents ./artifacts/*.deb | head -20 || true
       shell: bash
 
     - name: Install package dependencies (Debian/Ubuntu)

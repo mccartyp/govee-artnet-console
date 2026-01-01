@@ -461,24 +461,24 @@ class MonitoringCommandHandler(CommandHandler):
             stats_width = 4 * 12 + 3 * 2  # 4 boxes of 12 chars + 3 gaps of 2 spaces = 54 chars
             stats_padding = (INNER_WIDTH - stats_width) // 2
 
-            stats_line = "│" + " " * stats_padding
+            stats_line = "[bold cyan]│[/]" + " " * stats_padding
             stats_line += f"[cyan]┌──────────┐[/]  [green]┌──────────┐[/]  [red]┌──────────┐[/]  [blue]┌──────────┐[/]"
-            stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "│"
+            stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "[bold cyan]│[/]"
             self.shell._append_output(stats_line + "\n")
 
-            stats_line = "│" + " " * stats_padding
+            stats_line = "[bold cyan]│[/]" + " " * stats_padding
             stats_line += f"[cyan]│ Devices  │[/]  [green]│  Online  │[/]  [red]│ Offline  │[/]  [blue]│ Mappings │[/]"
-            stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "│"
+            stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "[bold cyan]│[/]"
             self.shell._append_output(stats_line + "\n")
 
-            stats_line = "│" + " " * stats_padding
+            stats_line = "[bold cyan]│[/]" + " " * stats_padding
             stats_line += f"[cyan]│   {total_devices:4d}   │[/]  [green]│   {online_devices:4d}   │[/]  [red]│   {offline_devices:4d}   │[/]  [blue]│   {total_mappings:4d}   │[/]"
-            stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "│"
+            stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "[bold cyan]│[/]"
             self.shell._append_output(stats_line + "\n")
 
-            stats_line = "│" + " " * stats_padding
+            stats_line = "[bold cyan]│[/]" + " " * stats_padding
             stats_line += f"[cyan]└──────────┘[/]  [green]└──────────┘[/]  [red]└──────────┘[/]  [blue]└──────────┘[/]"
-            stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "│"
+            stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "[bold cyan]│[/]"
             self.shell._append_output(stats_line + "\n")
 
             self.shell._append_output(f"[bold cyan]├{'─' * INNER_WIDTH}┤[/]\n")
@@ -489,12 +489,12 @@ class MonitoringCommandHandler(CommandHandler):
                 health_title = "[bold]System Health[/]"
                 # Calculate padding to fit within border
                 title_padding = INNER_WIDTH - len("System Health") - 2
-                self.shell._append_output(f"│ {health_title}{' ' * title_padding} │\n")
+                self.shell._append_output(f"[bold cyan]│[/] {health_title}{' ' * title_padding} [bold cyan]│[/]\n")
 
                 # Display subsystems in a compact grid format
                 subsystem_names = list(subsystems.keys())
                 for i in range(0, len(subsystem_names), 2):
-                    line = "│  "
+                    line = "[bold cyan]│[/]  "
                     subsystem_content = ""
 
                     # First subsystem in pair
@@ -551,8 +551,8 @@ class MonitoringCommandHandler(CommandHandler):
 
                     line += subsystem_content
                     # Calculate padding to fill to INNER_WIDTH
-                    padding_needed = INNER_WIDTH - 3 - content_width  # -3 for "│  " prefix (1 border + 2 spaces)
-                    line += " " * padding_needed + "│"
+                    padding_needed = INNER_WIDTH - 2 - content_width  # -2 for "  " prefix (2 spaces after border)
+                    line += " " * padding_needed + "[bold cyan]│[/]"
 
                     self.shell._append_output(line + "\n")
 
@@ -562,8 +562,8 @@ class MonitoringCommandHandler(CommandHandler):
             if isinstance(devices_data, list) and devices_data:
                 devices_title = "[bold]Devices[/]"
                 title_padding = INNER_WIDTH - len("Devices") - 2
-                self.shell._append_output(f"│ {devices_title}{' ' * title_padding} │\n")
-                self.shell._append_output("│\n")
+                self.shell._append_output(f"[bold cyan]│[/] {devices_title}{' ' * title_padding} [bold cyan]│[/]\n")
+                self.shell._append_output("[bold cyan]│[/]" + " " * INNER_WIDTH + "[bold cyan]│[/]\n")
 
                 # Create devices table with Rich - no box, will be contained in dashboard borders
                 devices_table = Table(
@@ -674,9 +674,9 @@ class MonitoringCommandHandler(CommandHandler):
                     padding_needed = INNER_WIDTH - 2 - len(visible_line)
                     if padding_needed < 0:
                         padding_needed = 0
-                    self.shell._append_output(f"│ {line}{' ' * padding_needed} │\n")
+                    self.shell._append_output(f"[bold cyan]│[/] {line}{' ' * padding_needed} [bold cyan]│[/]\n")
 
-                self.shell._append_output("│" + " " * INNER_WIDTH + "│\n")
+                self.shell._append_output("[bold cyan]│[/]" + " " * INNER_WIDTH + "[bold cyan]│[/]\n")
 
             self.shell._append_output(f"[bold cyan]└{'─' * INNER_WIDTH}┘[/]\n")
             self.shell._append_output("\n")

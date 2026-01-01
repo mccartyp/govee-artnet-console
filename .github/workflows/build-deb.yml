@@ -118,15 +118,19 @@ jobs:
       continue-on-error: true
       run: |
         echo "Attempting to install .deb package..."
-        ${{ matrix.use_sudo && 'sudo' || '' }} dpkg -i ./artifacts/*.deb || true
-
-        # Check if dependencies are satisfied
-        if ${{ matrix.use_sudo && 'sudo' || '' }} apt-get install -f -y; then
+        if ${{ matrix.use_sudo && 'sudo' || '' }} dpkg -i ./artifacts/*.deb; then
+          echo "✓ dpkg installation succeeded"
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "✓ Package installed successfully with apt dependencies"
         else
-          echo "status=needs_pip" >> $GITHUB_OUTPUT
-          echo "⚠ Apt dependencies not fully available, will try pip fallback"
+          echo "⚠ dpkg installation failed, trying to fix dependencies..."
+          # Check if dependencies are satisfied
+          if ${{ matrix.use_sudo && 'sudo' || '' }} apt-get install -f -y; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "✓ Package installed successfully after fixing dependencies"
+          else
+            echo "status=needs_pip" >> $GITHUB_OUTPUT
+            echo "⚠ Apt dependencies not fully available, will try pip fallback"
+          fi
         fi
       shell: bash
 
@@ -138,11 +142,44 @@ jobs:
         pip3 install httpx>=0.22.0 websockets>=12.0 pyyaml>=6.0.0 rich>=13.0.0 prompt-toolkit>=3.0.0 --break-system-packages
       shell: bash
 
+    - name: Debug installation status
+      run: |
+        echo "=== Debugging installation status ==="
+        echo "Checking if package is installed..."
+        dpkg -l | grep govee-artnet-console || echo "Package not found in dpkg"
+        echo ""
+        echo "Checking /usr/bin for binary..."
+        ls -la /usr/bin/govee-artnet-console || echo "Binary not found in /usr/bin"
+        echo ""
+        echo "Checking PATH..."
+        echo "PATH=$PATH"
+        echo ""
+        echo "Searching for binary..."
+        find /usr -name govee-artnet-console 2>/dev/null || echo "Binary not found anywhere in /usr"
+      shell: bash
+
     - name: Verify installation
       run: |
+        set +e  # Don't exit on error
         echo "Verifying govee-artnet-console is installed..."
-        which govee-artnet-console
-        govee-artnet-console --version || govee-artnet-console --help | head -5
+
+        # Check if binary exists
+        if ! which govee-artnet-console; then
+          echo "ERROR: govee-artnet-console not found in PATH"
+          echo "Installation appears to have failed"
+          exit 1
+        fi
+
+        # Try to run the command
+        if govee-artnet-console --version; then
+          echo "✓ govee-artnet-console --version succeeded"
+        elif govee-artnet-console --help | head -5; then
+          echo "✓ govee-artnet-console --help succeeded"
+        else
+          echo "ERROR: govee-artnet-console found but cannot execute"
+          exit 1
+        fi
+
         echo "✓ Installation verified on ${{ matrix.name }}"
       shell: bash
 

@@ -597,11 +597,11 @@ class MonitoringCommandHandler(CommandHandler):
 
                     # Status indicator
                     if offline:
-                        status = "[red]● Off[/]"
+                        status = Text("● Off", style="red")
                     elif stale:
-                        status = "[dim]● Stale[/]"
+                        status = Text("● Stale", style="dim")
                     else:
-                        status = "[green]● On[/]"
+                        status = Text("● On", style="green")
 
                     # Format last seen as relative time
                     last_seen_str = "-"

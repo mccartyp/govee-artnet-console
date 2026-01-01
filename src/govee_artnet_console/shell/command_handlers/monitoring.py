@@ -441,29 +441,29 @@ class MonitoringCommandHandler(CommandHandler):
             offline_devices = sum(1 for d in devices_data if d.get("offline")) if isinstance(devices_data, list) else 0
             total_mappings = len(mappings_data) if isinstance(mappings_data, list) else 0
 
-            # Create header
+            # Create header (total width 66 chars)
             self.shell._append_output("\n")
-            self.shell._append_output("[bold cyan]┌─ Govee ArtNet Bridge Dashboard " + "─" * 30 + "┐[/]\n")
+            self.shell._append_output("[bold cyan]┌─ Govee ArtNet Bridge Dashboard " + "─" * 31 + "┐[/]\n")
 
             # Statistics Summary Cards using ANSI box drawing
             stats_line = "│  "
             stats_line += f"[cyan]┌─────────┐[/]  [green]┌─────────┐[/]  [red]┌─────────┐[/]  [blue]┌─────────┐[/]"
-            stats_line += " " * 12 + "│"
+            stats_line += " " * 20 + "│"
             self.shell._append_output(stats_line + "\n")
 
             stats_line = "│  "
             stats_line += f"[cyan]│ Devices │[/]  [green]│ Online  │[/]  [red]│ Offline │[/]  [blue]│ Map'ngs │[/]"
-            stats_line += " " * 12 + "│"
+            stats_line += " " * 20 + "│"
             self.shell._append_output(stats_line + "\n")
 
             stats_line = "│  "
             stats_line += f"[cyan]│   {total_devices:3d}   │[/]  [green]│   {online_devices:3d}   │[/]  [red]│   {offline_devices:3d}   │[/]  [blue]│   {total_mappings:3d}   │[/]"
-            stats_line += " " * 12 + "│"
+            stats_line += " " * 20 + "│"
             self.shell._append_output(stats_line + "\n")
 
             stats_line = "│  "
             stats_line += f"[cyan]└─────────┘[/]  [green]└─────────┘[/]  [red]└─────────┘[/]  [blue]└─────────┘[/]"
-            stats_line += " " * 12 + "│"
+            stats_line += " " * 20 + "│"
             self.shell._append_output(stats_line + "\n")
 
             self.shell._append_output("[bold cyan]├" + "─" * 64 + "┤[/]\n")
@@ -484,19 +484,19 @@ class MonitoringCommandHandler(CommandHandler):
                     status = data.get("status", "unknown").lower()
 
                     if status == "ok":
-                        icon = "🟢"
+                        icon = "[green]●[/]"
                         style = "green"
                     elif status == "degraded":
-                        icon = "🟡"
+                        icon = "[yellow]●[/]"
                         style = "yellow"
                     elif status == "suppressed":
-                        icon = "🔴"
+                        icon = "[red]●[/]"
                         style = "red"
                     elif status == "recovering":
-                        icon = "🔵"
+                        icon = "[cyan]●[/]"
                         style = "cyan"
                     else:
-                        icon = "⚪"
+                        icon = "[white]●[/]"
                         style = "white"
 
                     line += f"{icon} [{style}]{name.capitalize():12s} {status.upper():10s}[/]"
@@ -508,24 +508,28 @@ class MonitoringCommandHandler(CommandHandler):
                         status = data.get("status", "unknown").lower()
 
                         if status == "ok":
-                            icon = "🟢"
+                            icon = "[green]●[/]"
                             style = "green"
                         elif status == "degraded":
-                            icon = "🟡"
+                            icon = "[yellow]●[/]"
                             style = "yellow"
                         elif status == "suppressed":
-                            icon = "🔴"
+                            icon = "[red]●[/]"
                             style = "red"
                         elif status == "recovering":
-                            icon = "🔵"
+                            icon = "[cyan]●[/]"
                             style = "cyan"
                         else:
-                            icon = "⚪"
+                            icon = "[white]●[/]"
                             style = "white"
 
                         line += f"  {icon} [{style}]{name.capitalize():12s} {status.upper():10s}[/]"
+                        # Padding for 2 subsystems (using colored symbol ● which is 1 char wide)
+                        line += " " * 10 + "│"
+                    else:
+                        # Padding for 1 subsystem only
+                        line += " " * 37 + "│"
 
-                    line += " │"
                     self.shell._append_output(line + "\n")
 
                 self.shell._append_output("[bold cyan]├" + "─" * 64 + "┤[/]\n")
@@ -554,22 +558,22 @@ class MonitoringCommandHandler(CommandHandler):
 
                 # Show up to 10 devices
                 for device in sorted_devices[:10]:
-                    device_id = device.get("id", "unknown")
+                    device_id = device.get("id", "unknown") or "unknown"
                     offline = device.get("offline", False)
                     stale = device.get("stale", False)
-                    ip = device.get("ip", "")
-                    model = device.get("model_number", "")
-                    name = device.get("description", "")
-                    last_seen = device.get("last_seen", "")
-                    mapping_count = device.get("mapping_count", 0)
+                    ip = device.get("ip") or ""
+                    model = device.get("model_number") or ""
+                    name = device.get("description") or ""
+                    last_seen = device.get("last_seen") or ""
+                    mapping_count = device.get("mapping_count", 0) or 0
 
                     # Status indicator
                     if offline:
-                        status = "[red]🔴 Off[/]"
+                        status = "[red]● Off[/]"
                     elif stale:
-                        status = "[dim]⚪ Stale[/]"
+                        status = "[dim]● Stale[/]"
                     else:
-                        status = "[green]🟢 On[/]"
+                        status = "[green]● On[/]"
 
                     # Format last seen as relative time
                     last_seen_str = ""
@@ -663,22 +667,22 @@ class MonitoringCommandHandler(CommandHandler):
             sorted_devices = sorted(devices_data, key=lambda d: (d.get("offline", False), d.get("id", "")))
 
             for device in sorted_devices:
-                device_id = device.get("id", "unknown")
+                device_id = device.get("id", "unknown") or "unknown"
                 offline = device.get("offline", False)
                 stale = device.get("stale", False)
-                ip = device.get("ip", "")
-                model = device.get("model_number", "")
-                name = device.get("description", "")
-                last_seen = device.get("last_seen", "")
-                mapping_count = device.get("mapping_count", 0)
+                ip = device.get("ip") or ""
+                model = device.get("model_number") or ""
+                name = device.get("description") or ""
+                last_seen = device.get("last_seen") or ""
+                mapping_count = device.get("mapping_count", 0) or 0
 
-                # Status indicator with emoji
+                # Status indicator with colored symbol
                 if offline:
-                    status = "[red]🔴 Offline[/]"
+                    status = "[red]● Offline[/]"
                 elif stale:
-                    status = "[dim]⚪ Stale[/]"
+                    status = "[dim]● Stale[/]"
                 else:
-                    status = "[green]🟢 Online[/]"
+                    status = "[green]● Online[/]"
 
                 # Format last seen as relative time
                 last_seen_str = ""

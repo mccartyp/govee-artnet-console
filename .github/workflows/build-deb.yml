@@ -71,11 +71,14 @@ jobs:
         include:
           - os: ubuntu-22.04
             name: "Ubuntu 22.04 LTS"
+            use_sudo: true
           - os: ubuntu-24.04
             name: "Ubuntu 24.04 LTS"
+            use_sudo: true
           - os: ubuntu-latest
             container: "debian:trixie"
             name: "Debian 13 (Trixie)"
+            use_sudo: false
 
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
@@ -106,8 +109,8 @@ jobs:
 
     - name: Install package dependencies (Debian/Ubuntu)
       run: |
-        apt-get update
-        apt-get install -y python3 python3-pip
+        ${{ matrix.use_sudo && 'sudo' || '' }} apt-get update
+        ${{ matrix.use_sudo && 'sudo' || '' }} apt-get install -y python3 python3-pip
       shell: bash
 
     - name: Test DEB installation
@@ -115,10 +118,10 @@ jobs:
       continue-on-error: true
       run: |
         echo "Attempting to install .deb package..."
-        dpkg -i ./artifacts/*.deb || true
+        ${{ matrix.use_sudo && 'sudo' || '' }} dpkg -i ./artifacts/*.deb || true
 
         # Check if dependencies are satisfied
-        if apt-get install -f -y; then
+        if ${{ matrix.use_sudo && 'sudo' || '' }} apt-get install -f -y; then
           echo "status=success" >> $GITHUB_OUTPUT
           echo "✓ Package installed successfully with apt dependencies"
         else
@@ -131,7 +134,7 @@ jobs:
       if: steps.install.outputs.status == 'needs_pip'
       run: |
         echo "Installing Python dependencies via pip..."
-        dpkg -i --force-depends ./artifacts/*.deb
+        ${{ matrix.use_sudo && 'sudo' || '' }} dpkg -i --force-depends ./artifacts/*.deb
         pip3 install httpx>=0.22.0 websockets>=12.0 pyyaml>=6.0.0 rich>=13.0.0 prompt-toolkit>=3.0.0 --break-system-packages
       shell: bash
 
@@ -146,6 +149,6 @@ jobs:
     - name: Test uninstallation
       run: |
         echo "Testing package removal..."
-        dpkg -r govee-artnet-console
+        ${{ matrix.use_sudo && 'sudo' || '' }} dpkg -r govee-artnet-console
         echo "✓ Package removed successfully"
       shell: bash

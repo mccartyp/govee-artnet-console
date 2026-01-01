@@ -575,10 +575,10 @@ class MonitoringCommandHandler(CommandHandler):
                 )
                 devices_table.add_column("ID", style="cyan", no_wrap=True, width=17)
                 devices_table.add_column("Status", justify="center", width=6, no_wrap=True, overflow="ignore")
-                devices_table.add_column("IP", style="dim", width=15)
-                devices_table.add_column("Model", style="yellow", width=6)
-                devices_table.add_column("Name", style="green", width=20)
-                devices_table.add_column("Last Seen", style="dim", width=10)
+                devices_table.add_column("IP", style="dim", no_wrap=True, width=15)
+                devices_table.add_column("Model", style="yellow", no_wrap=True, width=6)
+                devices_table.add_column("Name", style="green", no_wrap=True, width=20)
+                devices_table.add_column("Last Seen", style="dim", no_wrap=True, width=10)
                 devices_table.add_column("Maps", justify="right", width=4)
 
                 # Sort devices: online first, then by ID

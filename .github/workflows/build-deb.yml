@@ -116,9 +116,29 @@ jobs:
 
     - name: Install package dependencies (Debian/Ubuntu)
       run: |
-        echo "=== Installing base dependencies ==="
+        echo "=== Installing dependencies ==="
         ${{ matrix.use_sudo && 'sudo' || '' }} apt-get update
+
+        echo "Installing base dependencies..."
         ${{ matrix.use_sudo && 'sudo' || '' }} apt-get install -y python3 python3-pip
+
+        echo ""
+        echo "Attempting to install Python package dependencies from apt..."
+        echo "Note: Some packages may not be available or at required versions"
+
+        # Try to install each dependency, but don't fail if unavailable
+        for pkg in python3-httpx python3-websockets python3-yaml python3-rich python3-prompt-toolkit; do
+          echo "Trying $pkg..."
+          if ${{ matrix.use_sudo && 'sudo' || '' }} apt-get install -y $pkg 2>&1; then
+            echo "✓ Installed $pkg"
+          else
+            echo "⚠ $pkg not available or failed to install"
+          fi
+        done
+
+        echo ""
+        echo "Installed Python packages:"
+        dpkg -l | grep -E "python3-(httpx|websockets|yaml|rich|prompt-toolkit)" || echo "None found"
       shell: bash
 
     - name: Test DEB installation

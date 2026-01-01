@@ -1,5 +1,10 @@
 # Govee ArtNet Console
 
+[![Latest Release](https://img.shields.io/github/v/release/mccartyp/govee-artnet-console)](https://github.com/mccartyp/govee-artnet-console/releases/latest)
+[![Download DEB](https://img.shields.io/badge/download-.deb-blue)](https://github.com/mccartyp/govee-artnet-console/releases/latest)
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/github/license/mccartyp/govee-artnet-console)](LICENSE)
+
 Interactive CLI console for managing Govee devices via the [Govee ArtNet LAN Bridge](https://github.com/mccartyp/govee-artnet-lan-bridge).
 
 ## Overview
@@ -48,17 +53,43 @@ Interactive CLI console for managing Govee devices via the [Govee ArtNet LAN Bri
 
 ### Installation
 
+#### Option 1: Install from .deb Package (Recommended for Ubuntu/Debian)
+
+**Quick download:** Visit the [Latest Release](https://github.com/mccartyp/govee-artnet-console/releases/latest) page and download the `.deb` file.
+
+**Or use command line:**
 ```bash
-# Install from source
+# Download the latest .deb package (check releases page for exact filename)
+wget $(curl -s https://api.github.com/repos/mccartyp/govee-artnet-console/releases/latest | grep "browser_download_url.*\.deb" | cut -d '"' -f 4)
+
+# Install the downloaded package
+sudo dpkg -i govee-artnet-console_*.deb
+
+# If you see dependency errors, install Python packages via pip
+pip3 install httpx websockets pyyaml rich prompt-toolkit
+sudo dpkg -i --force-depends govee-artnet-console_*.deb
+```
+
+**Tested on:**
+- ✅ Ubuntu 22.04 LTS (via pip fallback)
+- ✅ Ubuntu 24.04 LTS (via pip fallback)
+- ✅ Debian 13 (Trixie)
+
+#### Option 2: Install from Source
+
+```bash
+# Clone the repository
 git clone https://github.com/mccartyp/govee-artnet-console.git
 cd govee-artnet-console
+
+# Install
 pip install .
 
 # Or install in development mode
 pip install -e .
 ```
 
-See [INSTALLATION.md](docs/INSTALLATION.md) for detailed installation instructions including Debian packages.
+See [INSTALLATION.md](docs/INSTALLATION.md) for detailed installation instructions and troubleshooting.
 
 ### Basic Usage
 

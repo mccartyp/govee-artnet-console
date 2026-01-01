@@ -543,15 +543,15 @@ class MonitoringCommandHandler(CommandHandler):
                             style = "white"
 
                         subsystem_content += f"  {icon} [{style}]{name.capitalize():12s} {status.upper():10s}[/]"
-                        # Two subsystems: ● Name(12) Status(10) + ● Name(12) Status(10) + spacing = ~50 chars
-                        content_width = 50
+                        # Two subsystems: ● Name(12) Status(10) + spacing + ● Name(12) Status(10) = 25 + 27 = 52 chars
+                        content_width = 52
                     else:
-                        # One subsystem: ● Name(12) Status(10) = ~24 chars
-                        content_width = 24
+                        # One subsystem: ● Name(12) Status(10) = 25 chars
+                        content_width = 25
 
                     line += subsystem_content
                     # Calculate padding to fill to INNER_WIDTH
-                    padding_needed = INNER_WIDTH - 2 - content_width  # -2 for "│  " prefix
+                    padding_needed = INNER_WIDTH - 3 - content_width  # -3 for "│  " prefix (1 border + 2 spaces)
                     line += " " * padding_needed + "│"
 
                     self.shell._append_output(line + "\n")
@@ -563,13 +563,15 @@ class MonitoringCommandHandler(CommandHandler):
                 devices_title = "[bold]Devices[/]"
                 title_padding = INNER_WIDTH - len("Devices") - 2
                 self.shell._append_output(f"│ {devices_title}{' ' * title_padding} │\n")
+                self.shell._append_output("│\n")
 
-                # Create devices table with Rich
+                # Create devices table with Rich - no box, will be contained in dashboard borders
                 devices_table = Table(
                     show_header=True,
                     header_style="bold magenta",
-                    box=box.SIMPLE,
+                    box=None,
                     padding=(0, 1),
+                    width=INNER_WIDTH - 2,  # Fit within dashboard borders with left padding
                 )
                 devices_table.add_column("ID", style="cyan", no_wrap=True, width=17)
                 devices_table.add_column("Status", justify="center", width=6)
@@ -605,12 +607,20 @@ class MonitoringCommandHandler(CommandHandler):
                     last_seen_str = "-"
                     if last_seen:
                         try:
-                            from datetime import datetime
+                            from datetime import datetime, timezone
                             dt = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
-                            # Match timezone of the timestamp for accurate comparison
-                            now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+                            # Ensure dt is timezone-aware in UTC
+                            if dt.tzinfo is None:
+                                dt = dt.replace(tzinfo=timezone.utc)
+                            else:
+                                dt = dt.astimezone(timezone.utc)
+                            # Get current time in UTC for accurate comparison
+                            now = datetime.now(timezone.utc)
                             delta = now - dt
-                            if delta.total_seconds() < 60:
+                            if delta.total_seconds() < 0:
+                                # Timestamp is in the future (clock skew or timezone issue)
+                                last_seen_str = "now"
+                            elif delta.total_seconds() < 60:
                                 last_seen_str = f"{int(delta.total_seconds())}s ago"
                             elif delta.total_seconds() < 3600:
                                 last_seen_str = f"{int(delta.total_seconds() / 60)}m ago"
@@ -647,8 +657,26 @@ class MonitoringCommandHandler(CommandHandler):
                         "", "", "", "", "", ""
                     )
 
-                self.shell._append_output(devices_table)
-                self.shell._append_output("\n")
+                # Render table to string and wrap with borders
+                from io import StringIO
+                from rich.console import Console
+
+                string_io = StringIO()
+                temp_console = Console(file=string_io, width=INNER_WIDTH - 2, legacy_windows=False)
+                temp_console.print(devices_table)
+                table_lines = string_io.getvalue().rstrip().split('\n')
+
+                # Output each line wrapped in borders
+                for line in table_lines:
+                    # Calculate visible width (approximate by removing common ANSI sequences)
+                    import re
+                    visible_line = re.sub(r'\x1b\[[0-9;]*m', '', line)
+                    padding_needed = INNER_WIDTH - 2 - len(visible_line)
+                    if padding_needed < 0:
+                        padding_needed = 0
+                    self.shell._append_output(f"│ {line}{' ' * padding_needed} │\n")
+
+                self.shell._append_output("│" + " " * INNER_WIDTH + "│\n")
 
             self.shell._append_output(f"[bold cyan]└{'─' * INNER_WIDTH}┘[/]\n")
             self.shell._append_output("\n")
@@ -716,12 +744,20 @@ class MonitoringCommandHandler(CommandHandler):
                 last_seen_str = "-"
                 if last_seen:
                     try:
-                        from datetime import datetime
+                        from datetime import datetime, timezone
                         dt = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
-                        # Match timezone of the timestamp for accurate comparison
-                        now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+                        # Ensure dt is timezone-aware in UTC
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        else:
+                            dt = dt.astimezone(timezone.utc)
+                        # Get current time in UTC for accurate comparison
+                        now = datetime.now(timezone.utc)
                         delta = now - dt
-                        if delta.total_seconds() < 60:
+                        if delta.total_seconds() < 0:
+                            # Timestamp is in the future (clock skew or timezone issue)
+                            last_seen_str = "now"
+                        elif delta.total_seconds() < 60:
                             last_seen_str = f"{int(delta.total_seconds())}s ago"
                         elif delta.total_seconds() < 3600:
                             last_seen_str = f"{int(delta.total_seconds() / 60)}m ago"

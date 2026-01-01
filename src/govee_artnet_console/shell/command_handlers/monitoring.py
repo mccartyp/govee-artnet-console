@@ -595,13 +595,13 @@ class MonitoringCommandHandler(CommandHandler):
                     last_seen = device.get("last_seen") or ""
                     mapping_count = device.get("mapping_count", 0) or 0
 
-                    # Status indicator - using inline markup for proper color rendering
+                    # Status indicator - inline markup like in _monitor_devices
                     if offline:
-                        status = "[red]●[/red] [red]Off[/red]"
+                        status = "[red]● Off[/]"
                     elif stale:
-                        status = "[dim]●[/dim] [dim]Stale[/dim]"
+                        status = "[dim]● Stale[/]"
                     else:
-                        status = "[green]●[/green] [green]On[/green]"
+                        status = "[green]● On[/]"
 
                     # Format last seen as relative time
                     last_seen_str = "-"
@@ -662,7 +662,7 @@ class MonitoringCommandHandler(CommandHandler):
                 from rich.console import Console
 
                 string_io = StringIO()
-                temp_console = Console(file=string_io, width=INNER_WIDTH - 2, legacy_windows=False, force_terminal=True)
+                temp_console = Console(file=string_io, width=INNER_WIDTH - 2, legacy_windows=False)
                 temp_console.print(devices_table)
                 table_lines = string_io.getvalue().rstrip().split('\n')
 

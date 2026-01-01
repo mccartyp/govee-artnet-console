@@ -175,20 +175,33 @@ jobs:
       shell: bash
 
     - name: Install Python dependencies via pip (if needed)
+      id: pip_fallback
       if: steps.install.outputs.status == 'needs_pip'
       run: |
         echo "=== Installing via pip fallback ==="
-        echo "Installing Python dependencies first..."
-        pip3 install httpx>=0.22.0 websockets>=12.0 pyyaml>=6.0.0 rich>=13.0.0 prompt-toolkit>=3.0.0 --break-system-packages
+        echo "Installing/upgrading Python dependencies..."
+        echo ""
+
+        # Try with --break-system-packages first (pip >= 22.1), fall back without it (older pip)
+        # Using --upgrade to replace any too-old versions installed from apt
+        if pip3 install --upgrade httpx>=0.22.0 websockets>=12.0 pyyaml>=6.0.0 rich>=13.0.0 prompt-toolkit>=3.0.0 --break-system-packages 2>/dev/null; then
+          echo "✓ Installed with --break-system-packages (modern pip)"
+        elif pip3 install --upgrade httpx>=0.22.0 websockets>=12.0 pyyaml>=6.0.0 rich>=13.0.0 prompt-toolkit>=3.0.0 2>&1; then
+          echo "✓ Installed without --break-system-packages (legacy pip)"
+        else
+          echo "ERROR: pip install failed"
+          echo "result=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
 
         echo ""
         echo "Installing package with --force-depends..."
         if ${{ matrix.use_sudo && 'sudo' || '' }} dpkg -i --force-depends ./artifacts/*.deb 2>&1; then
           echo "✓ Package installed with --force-depends"
-          echo "status=success" >> $GITHUB_OUTPUT
+          echo "result=success" >> $GITHUB_OUTPUT
         else
           echo "ERROR: dpkg --force-depends also failed"
-          echo "status=failed" >> $GITHUB_OUTPUT
+          echo "result=failed" >> $GITHUB_OUTPUT
         fi
       shell: bash
 
@@ -209,17 +222,27 @@ jobs:
       shell: bash
 
     - name: Verify installation
-      if: steps.install.outputs.status != 'failed'
+      if: steps.pip_fallback.outputs.result != 'failed'
       run: |
         set +e  # Don't exit on error immediately
         echo "=== Verifying installation ==="
+        echo "Install status: ${{ steps.install.outputs.status }}"
+        echo "Pip fallback result: ${{ steps.pip_fallback.outputs.result }}"
+        echo ""
+
+        # Check if package is actually installed
+        if dpkg -l govee-artnet-console 2>/dev/null | grep -q '^ii'; then
+          echo "✓ Package found in dpkg"
+        else
+          echo "ERROR: Package not installed in dpkg"
+          exit 1
+        fi
 
         # Check if binary exists
         if which govee-artnet-console; then
           echo "✓ Binary found in PATH"
         else
           echo "ERROR: govee-artnet-console not found in PATH"
-          echo "Installation status was: ${{ steps.install.outputs.status }}"
           exit 1
         fi
 
@@ -239,19 +262,26 @@ jobs:
       shell: bash
 
     - name: Installation failed
-      if: steps.install.outputs.status == 'failed'
+      if: steps.pip_fallback.outputs.result == 'failed'
       run: |
         echo "========================================"
         echo "ERROR: Installation failed on ${{ matrix.name }}"
         echo "========================================"
-        echo "The .deb package could not be installed even with --force-depends"
+        echo "Install status: ${{ steps.install.outputs.status }}"
+        echo "Pip fallback result: ${{ steps.pip_fallback.outputs.result }}"
+        echo "The .deb package could not be installed even with pip fallback"
         echo "Check the logs above for detailed error messages"
         exit 1
       shell: bash
 
     - name: Test uninstallation
+      if: steps.pip_fallback.outputs.result != 'failed'
       run: |
-        echo "Testing package removal..."
-        ${{ matrix.use_sudo && 'sudo' || '' }} dpkg -r govee-artnet-console
-        echo "✓ Package removed successfully"
+        echo "=== Testing package removal ==="
+        if dpkg -l govee-artnet-console 2>/dev/null | grep -q '^ii'; then
+          ${{ matrix.use_sudo && 'sudo' || '' }} dpkg -r govee-artnet-console
+          echo "✓ Package removed successfully"
+        else
+          echo "⚠ Package not installed, skipping uninstallation test"
+        fi
       shell: bash

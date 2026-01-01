@@ -441,42 +441,61 @@ class MonitoringCommandHandler(CommandHandler):
             offline_devices = sum(1 for d in devices_data if d.get("offline")) if isinstance(devices_data, list) else 0
             total_mappings = len(mappings_data) if isinstance(mappings_data, list) else 0
 
-            # Create header (total width 66 chars)
+            # Calculate dynamic width based on devices table
+            # Table columns: ID(17) + Status(6) + IP(15) + Model(6) + Name(20) + Last Seen(10) + Maps(4)
+            # With padding (0,1) per column = 2 chars × 7 columns = 14
+            # With separators and borders ≈ 8
+            # Total ≈ 78 + 14 + 8 = 100 chars
+            DASHBOARD_WIDTH = 100
+            INNER_WIDTH = DASHBOARD_WIDTH - 2  # Subtract left and right borders
+
+            # Create header
             self.shell._append_output("\n")
-            self.shell._append_output("[bold cyan]┌─ Govee ArtNet Bridge Dashboard " + "─" * 31 + "┐[/]\n")
+            header_text = "─ Govee ArtNet Bridge Dashboard "
+            remaining = INNER_WIDTH - len(header_text)
+            self.shell._append_output(f"[bold cyan]┌{header_text}{'─' * remaining}┐[/]\n")
 
             # Statistics Summary Cards using ANSI box drawing
-            stats_line = "│  "
-            stats_line += f"[cyan]┌─────────┐[/]  [green]┌─────────┐[/]  [red]┌─────────┐[/]  [blue]┌─────────┐[/]"
-            stats_line += " " * 20 + "│"
+            # Calculate padding for stats cards to center them
+            # Make boxes 12 chars wide to fit "Mappings" (8 chars) with padding
+            stats_width = 4 * 12 + 3 * 2  # 4 boxes of 12 chars + 3 gaps of 2 spaces = 54 chars
+            stats_padding = (INNER_WIDTH - stats_width) // 2
+
+            stats_line = "│" + " " * stats_padding
+            stats_line += f"[cyan]┌──────────┐[/]  [green]┌──────────┐[/]  [red]┌──────────┐[/]  [blue]┌──────────┐[/]"
+            stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "│"
             self.shell._append_output(stats_line + "\n")
 
-            stats_line = "│  "
-            stats_line += f"[cyan]│ Devices │[/]  [green]│ Online  │[/]  [red]│ Offline │[/]  [blue]│ Map'ngs │[/]"
-            stats_line += " " * 20 + "│"
+            stats_line = "│" + " " * stats_padding
+            stats_line += f"[cyan]│ Devices  │[/]  [green]│  Online  │[/]  [red]│ Offline  │[/]  [blue]│ Mappings │[/]"
+            stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "│"
             self.shell._append_output(stats_line + "\n")
 
-            stats_line = "│  "
-            stats_line += f"[cyan]│   {total_devices:3d}   │[/]  [green]│   {online_devices:3d}   │[/]  [red]│   {offline_devices:3d}   │[/]  [blue]│   {total_mappings:3d}   │[/]"
-            stats_line += " " * 20 + "│"
+            stats_line = "│" + " " * stats_padding
+            stats_line += f"[cyan]│   {total_devices:4d}   │[/]  [green]│   {online_devices:4d}   │[/]  [red]│   {offline_devices:4d}   │[/]  [blue]│   {total_mappings:4d}   │[/]"
+            stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "│"
             self.shell._append_output(stats_line + "\n")
 
-            stats_line = "│  "
-            stats_line += f"[cyan]└─────────┘[/]  [green]└─────────┘[/]  [red]└─────────┘[/]  [blue]└─────────┘[/]"
-            stats_line += " " * 20 + "│"
+            stats_line = "│" + " " * stats_padding
+            stats_line += f"[cyan]└──────────┘[/]  [green]└──────────┘[/]  [red]└──────────┘[/]  [blue]└──────────┘[/]"
+            stats_line += " " * (INNER_WIDTH - stats_padding - stats_width) + "│"
             self.shell._append_output(stats_line + "\n")
 
-            self.shell._append_output("[bold cyan]├" + "─" * 64 + "┤[/]\n")
+            self.shell._append_output(f"[bold cyan]├{'─' * INNER_WIDTH}┤[/]\n")
 
             # System Health Section
             subsystems = health_data.get("subsystems", {})
             if subsystems:
-                self.shell._append_output("│ [bold]System Health[/]" + " " * 49 + "│\n")
+                health_title = "[bold]System Health[/]"
+                # Calculate padding to fit within border
+                title_padding = INNER_WIDTH - len("System Health") - 2
+                self.shell._append_output(f"│ {health_title}{' ' * title_padding} │\n")
 
                 # Display subsystems in a compact grid format
                 subsystem_names = list(subsystems.keys())
                 for i in range(0, len(subsystem_names), 2):
                     line = "│  "
+                    subsystem_content = ""
 
                     # First subsystem in pair
                     name = subsystem_names[i]
@@ -499,7 +518,7 @@ class MonitoringCommandHandler(CommandHandler):
                         icon = "[white]●[/]"
                         style = "white"
 
-                    line += f"{icon} [{style}]{name.capitalize():12s} {status.upper():10s}[/]"
+                    subsystem_content += f"{icon} [{style}]{name.capitalize():12s} {status.upper():10s}[/]"
 
                     # Second subsystem in pair (if exists)
                     if i + 1 < len(subsystem_names):
@@ -523,20 +542,27 @@ class MonitoringCommandHandler(CommandHandler):
                             icon = "[white]●[/]"
                             style = "white"
 
-                        line += f"  {icon} [{style}]{name.capitalize():12s} {status.upper():10s}[/]"
-                        # Padding for 2 subsystems (using colored symbol ● which is 1 char wide)
-                        line += " " * 10 + "│"
+                        subsystem_content += f"  {icon} [{style}]{name.capitalize():12s} {status.upper():10s}[/]"
+                        # Two subsystems: ● Name(12) Status(10) + ● Name(12) Status(10) + spacing = ~50 chars
+                        content_width = 50
                     else:
-                        # Padding for 1 subsystem only
-                        line += " " * 37 + "│"
+                        # One subsystem: ● Name(12) Status(10) = ~24 chars
+                        content_width = 24
+
+                    line += subsystem_content
+                    # Calculate padding to fill to INNER_WIDTH
+                    padding_needed = INNER_WIDTH - 2 - content_width  # -2 for "│  " prefix
+                    line += " " * padding_needed + "│"
 
                     self.shell._append_output(line + "\n")
 
-                self.shell._append_output("[bold cyan]├" + "─" * 64 + "┤[/]\n")
+                self.shell._append_output(f"[bold cyan]├{'─' * INNER_WIDTH}┤[/]\n")
 
             # Device Table
             if isinstance(devices_data, list) and devices_data:
-                self.shell._append_output("│ [bold]Devices[/]" + " " * 55 + "│\n")
+                devices_title = "[bold]Devices[/]"
+                title_padding = INNER_WIDTH - len("Devices") - 2
+                self.shell._append_output(f"│ {devices_title}{' ' * title_padding} │\n")
 
                 # Create devices table with Rich
                 devices_table = Table(
@@ -576,12 +602,13 @@ class MonitoringCommandHandler(CommandHandler):
                         status = "[green]● On[/]"
 
                     # Format last seen as relative time
-                    last_seen_str = ""
+                    last_seen_str = "-"
                     if last_seen:
                         try:
-                            from datetime import datetime, timezone
+                            from datetime import datetime
                             dt = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
-                            now = datetime.now(timezone.utc)
+                            # Match timezone of the timestamp for accurate comparison
+                            now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
                             delta = now - dt
                             if delta.total_seconds() < 60:
                                 last_seen_str = f"{int(delta.total_seconds())}s ago"
@@ -592,7 +619,8 @@ class MonitoringCommandHandler(CommandHandler):
                             else:
                                 last_seen_str = f"{int(delta.total_seconds() / 86400)}d ago"
                         except Exception:
-                            last_seen_str = "unknown"
+                            # If parsing fails, show a dash instead of "unknown"
+                            last_seen_str = "-"
 
                     # Truncate long names
                     if len(name) > 20:
@@ -609,7 +637,7 @@ class MonitoringCommandHandler(CommandHandler):
                         ip or "-",
                         model or "-",
                         name or "-",
-                        last_seen_str or "-",
+                        last_seen_str,
                         str(mapping_count),
                     )
 
@@ -622,7 +650,7 @@ class MonitoringCommandHandler(CommandHandler):
                 self.shell._append_output(devices_table)
                 self.shell._append_output("\n")
 
-            self.shell._append_output("[bold cyan]└" + "─" * 64 + "┘[/]\n")
+            self.shell._append_output(f"[bold cyan]└{'─' * INNER_WIDTH}┘[/]\n")
             self.shell._append_output("\n")
 
         except Exception as exc:
@@ -685,12 +713,13 @@ class MonitoringCommandHandler(CommandHandler):
                     status = "[green]● Online[/]"
 
                 # Format last seen as relative time
-                last_seen_str = ""
+                last_seen_str = "-"
                 if last_seen:
                     try:
-                        from datetime import datetime, timezone
+                        from datetime import datetime
                         dt = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
-                        now = datetime.now(timezone.utc)
+                        # Match timezone of the timestamp for accurate comparison
+                        now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
                         delta = now - dt
                         if delta.total_seconds() < 60:
                             last_seen_str = f"{int(delta.total_seconds())}s ago"
@@ -701,7 +730,8 @@ class MonitoringCommandHandler(CommandHandler):
                         else:
                             last_seen_str = f"{int(delta.total_seconds() / 86400)}d ago"
                     except Exception:
-                        last_seen_str = "unknown"
+                        # If parsing fails, show a dash instead of "unknown"
+                        last_seen_str = "-"
 
                 devices_table.add_row(
                     device_id,
@@ -709,7 +739,7 @@ class MonitoringCommandHandler(CommandHandler):
                     ip or "-",
                     model or "-",
                     name or "-",
-                    last_seen_str or "-",
+                    last_seen_str,
                     str(mapping_count),
                 )
 

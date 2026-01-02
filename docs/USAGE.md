@@ -27,12 +27,12 @@ artnet-lan-console --server-url http://192.168.1.100:8000
 ### First Steps
 
 ```
-artnet-bridge> help                    # Show available commands
-artnet-bridge> tips                    # Show helpful tips
-artnet-bridge> status                  # Check bridge connection status
-artnet-bridge> devices list            # List all discovered devices
-artnet-bridge> devices list --protocol govee   # List only Govee devices
-artnet-bridge> devices list --protocol lifx    # List only LIFX devices
+dmx-bridge> help                    # Show available commands
+dmx-bridge> tips                    # Show helpful tips
+dmx-bridge> status                  # Check bridge connection status
+dmx-bridge> devices list            # List all discovered devices
+dmx-bridge> devices list --protocol govee   # List only Govee devices
+dmx-bridge> devices list --protocol lifx    # List only LIFX devices
 ```
 
 ## Core Features
@@ -42,11 +42,11 @@ artnet-bridge> devices list --protocol lifx    # List only LIFX devices
 Watch your system in action with comprehensive monitoring commands:
 
 ```bash
-artnet-bridge> monitor dashboard    # Comprehensive dashboard with health + devices + stats
-artnet-bridge> monitor devices      # Detailed device table with all fields
-artnet-bridge> monitor stats        # System statistics summary
-artnet-bridge> watch dashboard      # Live updating dashboard (auto-refresh every 5s)
-artnet-bridge> watch devices        # Live updating device monitor
+dmx-bridge> monitor dashboard    # Comprehensive dashboard with health + devices + stats
+dmx-bridge> monitor devices      # Detailed device table with all fields
+dmx-bridge> monitor stats        # System statistics summary
+dmx-bridge> watch dashboard      # Live updating dashboard (auto-refresh every 5s)
+dmx-bridge> watch devices        # Live updating device monitor
 ```
 
 **Monitor Dashboard** displays:
@@ -68,16 +68,16 @@ artnet-bridge> watch devices        # Live updating device monitor
 View and search logs without leaving the shell:
 
 ```bash
-artnet-bridge> logs view                 # Show last 50 log lines (paginated)
-artnet-bridge> logs tail                 # Stream logs in real-time (WebSocket)
-artnet-bridge> logs search "discovered"  # Search logs for pattern
+dmx-bridge> logs view                 # Show last 50 log lines (paginated)
+dmx-bridge> logs tail                 # Stream logs in real-time (WebSocket)
+dmx-bridge> logs search "discovered"  # Search logs for pattern
 ```
 
 **Log filtering:**
 ```bash
-artnet-bridge> logs view --level ERROR        # Show only error-level logs
-artnet-bridge> logs tail --level ERROR        # Tail only error-level logs
-artnet-bridge> logs tail --logger discovery   # Show logs from discovery subsystem
+dmx-bridge> logs view --level ERROR        # Show only error-level logs
+dmx-bridge> logs tail --level ERROR        # Tail only error-level logs
+dmx-bridge> logs tail --logger discovery   # Show logs from discovery subsystem
 ```
 
 ### 🔔 Real-Time Event Streaming
@@ -85,10 +85,10 @@ artnet-bridge> logs tail --logger discovery   # Show logs from discovery subsyst
 Monitor system events as they happen with the event streaming feature:
 
 ```bash
-artnet-bridge> logs events                    # View real-time event stream
-artnet-bridge> logs events --type device      # Filter device events only
-artnet-bridge> logs events --type mapping     # Filter mapping events only
-artnet-bridge> logs events --type health      # Filter health events only
+dmx-bridge> logs events                    # View real-time event stream
+dmx-bridge> logs events --type device      # Filter device events only
+dmx-bridge> logs events --type mapping     # Filter mapping events only
+dmx-bridge> logs events --type health      # Filter health events only
 ```
 
 **Event Types:**
@@ -127,13 +127,13 @@ Events are displayed in two ways:
 Save frequently used device IDs with friendly names:
 
 ```bash
-artnet-bridge> bookmark add kitchen "AA:BB:CC:DD:EE:FF"
-artnet-bridge> bookmark add bedroom "11:22:33:44:55:66"
-artnet-bridge> bookmark list
+dmx-bridge> bookmark add kitchen "AA:BB:CC:DD:EE:FF"
+dmx-bridge> bookmark add bedroom "11:22:33:44:55:66"
+dmx-bridge> bookmark list
 
 # Use bookmarks in commands
-artnet-bridge> devices enable @kitchen
-artnet-bridge> mappings create --device-id @bedroom --universe 0 --template RGB
+dmx-bridge> devices enable @kitchen
+dmx-bridge> mappings create --device-id @bedroom --universe 0 --template RGB
 ```
 
 **Bookmark commands:**
@@ -147,13 +147,13 @@ artnet-bridge> mappings create --device-id @bedroom --universe 0 --template RGB
 Create shortcuts for frequently used commands:
 
 ```bash
-artnet-bridge> alias dl "devices list"
-artnet-bridge> alias ds "devices"
-artnet-bridge> alias ml "mappings list"
+dmx-bridge> alias dl "devices list"
+dmx-bridge> alias ds "devices"
+dmx-bridge> alias ml "mappings list"
 
 # Use aliases
-artnet-bridge> dl           # Executes "devices list"
-artnet-bridge> ds enable @kitchen   # Executes "devices enable @kitchen"
+dmx-bridge> dl           # Executes "devices list"
+dmx-bridge> ds enable @kitchen   # Executes "devices enable @kitchen"
 ```
 
 **Alias commands:**
@@ -167,25 +167,25 @@ artnet-bridge> ds enable @kitchen   # Executes "devices enable @kitchen"
 ### Connection Management
 
 ```bash
-artnet-bridge> connect              # Connect to the bridge server
-artnet-bridge> disconnect           # Disconnect from server
-artnet-bridge> status              # Show connection status
+dmx-bridge> connect              # Connect to the bridge server
+dmx-bridge> disconnect           # Disconnect from server
+dmx-bridge> status              # Show connection status
 ```
 
 ### Device Management
 
 ```bash
-artnet-bridge> devices list                           # List all devices (simplified view)
-artnet-bridge> devices list detailed                  # Show detailed device information
-artnet-bridge> devices list --state active            # Filter by state (active, disabled, offline)
-artnet-bridge> devices list --id AA:BB:CC             # Filter by device ID (MAC address)
-artnet-bridge> devices list --ip 192.168.1.100        # Filter by IP address
-artnet-bridge> devices list detailed --state offline  # Detailed view with filters
-artnet-bridge> devices enable <device_id>             # Enable a device
-artnet-bridge> devices disable <device_id>            # Disable a device
-artnet-bridge> devices set-name <device_id> "Name"    # Set device name
-artnet-bridge> devices set-capabilities <device_id> --brightness true --color true  # Set capabilities
-artnet-bridge> devices command <device_id> [options]  # Send control commands
+dmx-bridge> devices list                           # List all devices (simplified view)
+dmx-bridge> devices list detailed                  # Show detailed device information
+dmx-bridge> devices list --state active            # Filter by state (active, disabled, offline)
+dmx-bridge> devices list --id AA:BB:CC             # Filter by device ID (MAC address)
+dmx-bridge> devices list --ip 192.168.1.100        # Filter by IP address
+dmx-bridge> devices list detailed --state offline  # Detailed view with filters
+dmx-bridge> devices enable <device_id>             # Enable a device
+dmx-bridge> devices disable <device_id>            # Disable a device
+dmx-bridge> devices set-name <device_id> "Name"    # Set device name
+dmx-bridge> devices set-capabilities <device_id> --brightness true --color true  # Set capabilities
+dmx-bridge> devices command <device_id> [options]  # Send control commands
 ```
 
 #### Device Control Commands
@@ -194,37 +194,37 @@ Send control commands to devices directly from the shell:
 
 ```bash
 # Turn device on/off
-artnet-bridge> devices command AA:BB:CC:DD:EE:FF --on
-artnet-bridge> devices command AA:BB:CC:DD:EE:FF --off
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --on
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --off
 
 # Set brightness (0-255)
-artnet-bridge> devices command AA:BB:CC:DD:EE:FF --brightness 200
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --brightness 200
 
 # Set RGB color (hex format)
-artnet-bridge> devices command AA:BB:CC:DD:EE:FF --color #FF00FF
-artnet-bridge> devices command AA:BB:CC:DD:EE:FF --color ff8800
-artnet-bridge> devices command AA:BB:CC:DD:EE:FF --color F0F    # Shorthand expands to FF00FF
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --color #FF00FF
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --color ff8800
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --color F0F    # Shorthand expands to FF00FF
 
 # Set color temperature (0-255)
-artnet-bridge> devices command AA:BB:CC:DD:EE:FF --ct 128
-artnet-bridge> devices command AA:BB:CC:DD:EE:FF --kelvin 200  # Same as --ct
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --ct 128
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --kelvin 200  # Same as --ct
 
 # Combine multiple commands
-artnet-bridge> devices command AA:BB:CC:DD:EE:FF --on --brightness 200 --color #FF00FF
-artnet-bridge> devices command AA:BB:CC:DD:EE:FF --color ff8800 --brightness 128
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --on --brightness 200 --color #FF00FF
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --color ff8800 --brightness 128
 
 # Use bookmarks for convenience
-artnet-bridge> bookmark add kitchen "AA:BB:CC:DD:EE:FF"
-artnet-bridge> devices command @kitchen --on --color #00FF00
+dmx-bridge> bookmark add kitchen "AA:BB:CC:DD:EE:FF"
+dmx-bridge> devices command @kitchen --on --color #00FF00
 ```
 
 ### Mapping Management
 
 ```bash
-artnet-bridge> mappings list                          # List all mappings
-artnet-bridge> mappings get <id>                      # Get mapping details
-artnet-bridge> mappings delete <id>                   # Delete a mapping
-artnet-bridge> mappings channel-map                   # Show channel map
+dmx-bridge> mappings list                          # List all mappings
+dmx-bridge> mappings get <id>                      # Get mapping details
+dmx-bridge> mappings delete <id>                   # Delete a mapping
+dmx-bridge> mappings channel-map                   # Show channel map
 ```
 
 ### Monitoring Commands
@@ -232,11 +232,11 @@ artnet-bridge> mappings channel-map                   # Show channel map
 #### Static Snapshots (Execute Once)
 
 ```bash
-artnet-bridge> monitor dashboard                      # Comprehensive dashboard
-artnet-bridge> monitor devices                        # Detailed device table
-artnet-bridge> monitor stats                          # System statistics summary
-artnet-bridge> logs view                              # View recent logs (paginated)
-artnet-bridge> logs events                            # Real-time event stream viewer
+dmx-bridge> monitor dashboard                      # Comprehensive dashboard
+dmx-bridge> monitor devices                        # Detailed device table
+dmx-bridge> monitor stats                          # System statistics summary
+dmx-bridge> logs view                              # View recent logs (paginated)
+dmx-bridge> logs events                            # Real-time event stream viewer
 ```
 
 **Monitor Dashboard Example Output:**
@@ -273,8 +273,8 @@ Summary: 12 total devices | 10 online | 2 offline | 8 mappings
 #### Live Updating Views (Auto-Refresh)
 
 ```bash
-artnet-bridge> watch dashboard                        # Live dashboard (updates every 5s)
-artnet-bridge> watch devices                          # Live device monitor
+dmx-bridge> watch dashboard                        # Live dashboard (updates every 5s)
+dmx-bridge> watch devices                          # Live device monitor
 ```
 
 **Watch Mode Controls:**
@@ -285,10 +285,10 @@ artnet-bridge> watch devices                          # Live device monitor
 #### Event Streaming
 
 ```bash
-artnet-bridge> logs events                            # View all events in real-time
-artnet-bridge> logs events --type device              # Filter device events only
-artnet-bridge> logs events --type mapping             # Filter mapping events only
-artnet-bridge> logs events --type health              # Filter health events only
+dmx-bridge> logs events                            # View all events in real-time
+dmx-bridge> logs events --type device              # Filter device events only
+dmx-bridge> logs events --type mapping             # Filter mapping events only
+dmx-bridge> logs events --type health              # Filter health events only
 ```
 
 **Event Stream Example Output:**
@@ -316,7 +316,7 @@ artnet-bridge> logs events --type health              # Filter health events onl
 **Background Event Notifications:**
 While working in the shell, you'll see terse event notifications automatically:
 ```
-artnet-bridge> devices list
+dmx-bridge> devices list
 🔵 *** Device Discovered: AA:BB:CC:DD:EE:FF (Kitchen Light) at 192.168.1.100
 🟢 *** Device Online: AA:BB:CC:DD:EE:FF (Kitchen Light)
 Device ID              Status    IP              Model
@@ -326,31 +326,31 @@ AA:BB:CC:DD:EE:FF     🟢 Online  192.168.1.100  H6046
 #### Log Viewing
 
 ```bash
-artnet-bridge> logs view                              # View recent logs (paginated)
-artnet-bridge> logs view --level ERROR                # Filter by log level
-artnet-bridge> logs view --logger discovery           # Filter by logger name
-artnet-bridge> logs tail                              # Stream logs in real-time
-artnet-bridge> logs tail --level ERROR --logger api   # Tail with filters
-artnet-bridge> logs search "discovered"               # Search logs for pattern
+dmx-bridge> logs view                              # View recent logs (paginated)
+dmx-bridge> logs view --level ERROR                # Filter by log level
+dmx-bridge> logs view --logger discovery           # Filter by logger name
+dmx-bridge> logs tail                              # Stream logs in real-time
+dmx-bridge> logs tail --level ERROR --logger api   # Tail with filters
+dmx-bridge> logs search "discovered"               # Search logs for pattern
 ```
 
 ### Output Control
 
 ```bash
-artnet-bridge> output --format json    # Switch to JSON output
-artnet-bridge> output --format yaml    # Switch to YAML output
-artnet-bridge> output --format table   # Switch to table output (default)
+dmx-bridge> output --format json    # Switch to JSON output
+dmx-bridge> output --format yaml    # Switch to YAML output
+dmx-bridge> output --format table   # Switch to table output (default)
 ```
 
 ### Shell Utilities
 
 ```bash
-artnet-bridge> help                    # Show all commands
-artnet-bridge> help <command>          # Show help for specific command
-artnet-bridge> version                 # Show shell version
-artnet-bridge> tips                    # Show helpful tips
-artnet-bridge> clear                   # Clear the screen
-artnet-bridge> exit                    # Exit the shell (or Ctrl+D)
+dmx-bridge> help                    # Show all commands
+dmx-bridge> help <command>          # Show help for specific command
+dmx-bridge> version                 # Show shell version
+dmx-bridge> tips                    # Show helpful tips
+dmx-bridge> clear                   # Clear the screen
+dmx-bridge> exit                    # Exit the shell (or Ctrl+D)
 ```
 
 ## Advanced Features
@@ -411,10 +411,10 @@ artnet-lan-console batch load setup.artnet
 Save and restore shell sessions:
 
 ```bash
-artnet-bridge> session save my-setup              # Save current state
-artnet-bridge> session list                       # List saved sessions
-artnet-bridge> session load my-setup              # Restore a session
-artnet-bridge> session delete my-setup            # Delete a session
+dmx-bridge> session save my-setup              # Save current state
+dmx-bridge> session list                       # List saved sessions
+dmx-bridge> session load my-setup              # Restore a session
+dmx-bridge> session delete my-setup            # Delete a session
 ```
 
 ## Configuration
@@ -475,9 +475,9 @@ export ARTNET_LAN_OUTPUT_FORMAT=json  # json, yaml, or table
 ### Quick Device Discovery Workflow
 
 ```bash
-artnet-bridge> monitor dashboard              # Check system health and device count
-artnet-bridge> monitor devices                # List all devices with details
-artnet-bridge> logs events --type device      # Monitor device events in real-time
+dmx-bridge> monitor dashboard              # Check system health and device count
+dmx-bridge> monitor devices                # List all devices with details
+dmx-bridge> logs events --type device      # Monitor device events in real-time
 ```
 
 ### Monitoring Multiple Screens
@@ -486,18 +486,18 @@ Use multiple terminal windows for comprehensive monitoring:
 
 **Terminal 1**: Watch dashboard
 ```bash
-artnet-bridge> watch dashboard
+dmx-bridge> watch dashboard
 ```
 
 **Terminal 2**: Monitor events
 ```bash
-artnet-bridge> logs events
+dmx-bridge> logs events
 ```
 
 **Terminal 3**: Interactive shell
 ```bash
-artnet-bridge> devices list
-artnet-bridge> mappings list
+dmx-bridge> devices list
+dmx-bridge> mappings list
 ```
 
 ### Event Notification Best Practices
@@ -511,16 +511,16 @@ artnet-bridge> mappings list
 
 ```bash
 # Create bookmarks for frequently used devices
-artnet-bridge> bookmark add kitchen "AA:BB:CC:DD:EE:FF"
-artnet-bridge> bookmark add bedroom "11:22:33:44:55:66"
+dmx-bridge> bookmark add kitchen "AA:BB:CC:DD:EE:FF"
+dmx-bridge> bookmark add bedroom "11:22:33:44:55:66"
 
 # Use bookmarks in commands
-artnet-bridge> devices command @kitchen --on --brightness 255
-artnet-bridge> mappings create --device-id @bedroom --universe 0 --template RGB
+dmx-bridge> devices command @kitchen --on --brightness 255
+dmx-bridge> mappings create --device-id @bedroom --universe 0 --template RGB
 
 # Create aliases for common workflows
-artnet-bridge> alias status "monitor dashboard"
-artnet-bridge> alias events "logs events --type device"
+dmx-bridge> alias status "monitor dashboard"
+dmx-bridge> alias events "logs events --type device"
 ```
 
 ### WebSocket Connection Issues

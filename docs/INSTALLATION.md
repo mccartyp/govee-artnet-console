@@ -192,10 +192,10 @@ artnet-lan-console health
 artnet-lan-console
 
 # In shell, try:
-artnet-bridge> help
-artnet-bridge> connect
-artnet-bridge> devices list
-artnet-bridge> exit
+dmx-bridge> help
+dmx-bridge> connect
+dmx-bridge> devices list
+dmx-bridge> exit
 ```
 
 ## Troubleshooting

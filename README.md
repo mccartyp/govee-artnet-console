@@ -118,17 +118,17 @@ artnet-lan-console devices list --output table
 Once in the shell:
 
 ```
-artnet-bridge> monitor dashboard               # View comprehensive system dashboard
-artnet-bridge> monitor devices                 # List all devices with detailed status
-artnet-bridge> devices list                    # List all discovered devices
-artnet-bridge> devices list --protocol govee   # List only Govee devices
-artnet-bridge> devices list --protocol lifx    # List only LIFX devices
-artnet-bridge> mappings create --device-id AA:BB:CC:DD:EE:FF:11:22 \
-                                --universe 0 --template RGB --start-channel 1
-artnet-bridge> logs events                     # View real-time event stream
-artnet-bridge> logs tail                       # Stream application logs in real-time
-artnet-bridge> watch dashboard                 # Live updating dashboard (updates every 5s)
-artnet-bridge> help                            # Show all available commands
+dmx-bridge> monitor dashboard               # View comprehensive system dashboard
+dmx-bridge> monitor devices                 # List all devices with detailed status
+dmx-bridge> devices list                    # List all discovered devices
+dmx-bridge> devices list --protocol govee   # List only Govee devices
+dmx-bridge> devices list --protocol lifx    # List only LIFX devices
+dmx-bridge> mappings create --device-id AA:BB:CC:DD:EE:FF:11:22 \
+                             --universe 0 --template RGB --start-channel 1
+dmx-bridge> logs events                     # View real-time event stream
+dmx-bridge> logs tail                       # Stream application logs in real-time
+dmx-bridge> watch dashboard                 # Live updating dashboard (updates every 5s)
+dmx-bridge> help                            # Show all available commands
 ```
 
 ### Dashboard & Monitoring Commands

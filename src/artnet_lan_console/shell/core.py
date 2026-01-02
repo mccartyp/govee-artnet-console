@@ -87,7 +87,7 @@ DEFAULT_LOG_LINES = 50
 class ArtNetShell:
     """Interactive shell for the ArtNet LAN bridge using prompt_toolkit."""
 
-    prompt = "artnet-bridge> "
+    prompt = "dmx-bridge> "
 
     def __init__(self, config: ClientConfig):
         """

@@ -586,22 +586,23 @@ class MonitoringCommandHandler(CommandHandler):
                     offline = stats.get("offline", 0)
 
                     # Format: "  🔵 Govee: 5 total (4 enabled, 1 offline)"
-                    line = f"[bold cyan]│[/]  {proto_display}: {total} total ("
+                    content = f"  {proto_display}: {total} total ("
                     if enabled > 0:
-                        line += f"[green]{enabled} enabled[/]"
+                        content += f"[green]{enabled} enabled[/]"
                     else:
-                        line += f"[dim]{enabled} enabled[/]"
+                        content += f"[dim]{enabled} enabled[/]"
 
                     if offline > 0:
-                        line += f", [red]{offline} offline[/]"
+                        content += f", [red]{offline} offline[/]"
                     else:
-                        line += f", [dim]{offline} offline[/]"
-                    line += ")"
+                        content += f", [dim]{offline} offline[/]"
+                    content += ")"
 
-                    # Calculate padding - need to account for Rich markup not being visible
-                    visible_text = f"  {protocol_name.title()}: {total} total ({enabled} enabled, {offline} offline)"
-                    padding_needed = INNER_WIDTH - len(visible_text) - 6  # -6 for emoji
-                    line += " " * padding_needed + "[bold cyan]│[/]"
+                    # Calculate padding using rendered text width (markup stripped)
+                    visible_length = Text.from_markup(content).cell_len
+                    padding_needed = max(0, INNER_WIDTH - visible_length)
+
+                    line = f"[bold cyan]│[/]{content}{' ' * padding_needed}[bold cyan]│[/]"
                     self.shell._append_output(line + "\n")
 
                 self.shell._append_output("[bold cyan]│[/]" + " " * INNER_WIDTH + "[bold cyan]│[/]\n")

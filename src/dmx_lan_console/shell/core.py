@@ -102,7 +102,7 @@ class ArtNetShell:
         self.console = Console(legacy_windows=False, soft_wrap=False, force_terminal=True)
 
         # Initialize response cache for performance
-        cache_ttl = float(os.environ.get("GOVEE_ARTNET_CACHE_TTL", str(DEFAULT_CACHE_TTL)))
+        cache_ttl = float(os.environ.get("DMX_LAN_CACHE_TTL", str(DEFAULT_CACHE_TTL)))
         self.cache = ResponseCache(default_ttl=cache_ttl)
 
         # Track previous data for delta detection in watch mode

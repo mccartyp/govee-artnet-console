@@ -186,8 +186,8 @@ class ConsoleConfig:
 
     def get_api_key_for_server(self, server_name: str) -> Optional[str]:
         """Get API key for a server, checking environment variable first."""
-        # Check environment variable first (also supports legacy GOVEE_ARTNET_API_KEY)
-        env_key = os.environ.get("ARTNET_LAN_API_KEY") or os.environ.get("GOVEE_ARTNET_API_KEY")
+        # Check environment variable first
+        env_key = os.environ.get("DMX_LAN_API_KEY")
         if env_key:
             return env_key
 

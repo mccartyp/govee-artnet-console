@@ -22,7 +22,7 @@ from rich.text import Text
 
 
 DEFAULT_SERVER_URL = "http://127.0.0.1:8000"
-ENV_PREFIX = "GOVEE_ARTNET_"
+ENV_PREFIX = "DMX_LAN_"
 
 
 class CliError(Exception):
@@ -80,10 +80,10 @@ def _env(name: str, default: Optional[str] = None) -> Optional[str]:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "CLI for the Govee Artnet LAN bridge API. Launches interactive shell by default. "
-            "Uses GOVEE_ARTNET_* env vars for defaults and prints JSON (default) or YAML. "
-            "Examples: `govee-artnet` (start shell), `govee-artnet devices list`, "
-            "`govee-artnet mappings create --device-id <id> --universe 0 --start-channel 1 --template RGB`."
+            "CLI for the DMX LAN bridge API. Launches interactive shell by default. "
+            "Uses DMX_LAN_* env vars for defaults and prints JSON (default) or YAML. "
+            "Examples: `dmx-lan-console` (start shell), `dmx-lan-console devices list`, "
+            "`dmx-lan-console mappings create --device-id <id> --universe 0 --start-channel 1 --template RGB`."
         )
     )
     parser.add_argument(

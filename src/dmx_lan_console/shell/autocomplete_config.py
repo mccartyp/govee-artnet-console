@@ -1,4 +1,4 @@
-"""Autocomplete configuration for the Govee ArtNet shell.
+"""Autocomplete configuration for the DMX LAN Console shell.
 
 This module defines the command structure for multi-level autocomplete
 in the interactive shell interface.
@@ -24,7 +24,8 @@ def get_completer_dict() -> dict:
                 'detailed': None,
                 '--id': None,
                 '--ip': None,
-                '--state': {'active': None, 'disabled': None, 'offline': None}
+                '--state': {'active': None, 'disabled': None, 'offline': None},
+                '--protocol': {'govee': None, 'lifx': None}
             },
             'enable': None,
             'disable': None,
@@ -48,6 +49,7 @@ def get_completer_dict() -> dict:
             'get': None,
             'create': {
                 '--device-id': None,
+                '--protocol': {'govee': None, 'lifx': None},
                 '--universe': None,
                 '--template': {'RGB': None, 'RGBCT': None, 'DimRGBCT': None, 'DimCT': None},
                 '--start-channel': None,

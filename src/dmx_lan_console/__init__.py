@@ -1,10 +1,10 @@
-"""Govee ArtNet Console - Interactive CLI for managing Govee ArtNet LAN Bridge.
+"""DMX LAN Console - Interactive CLI for managing multi-protocol smart lighting devices.
 
 This package provides a standalone CLI tool for controlling and monitoring
-Govee devices via the ArtNet LAN Bridge REST API.
+smart lighting devices (Govee, LIFX, etc.) via the DMX LAN Bridge REST API.
 """
 
-__version__ = "1.0.1"
+__version__ = "2.0.0"
 __author__ = "mccartyp"
 
 from .cli import ClientConfig, main

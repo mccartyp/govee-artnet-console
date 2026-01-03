@@ -1,13 +1,13 @@
 [tool.poetry]
-name = "govee-artnet-console"
-version = "1.0.2"
-description = "Interactive CLI console for managing Govee ArtNet LAN Bridge"
+name = "dmx-lan-console"
+version = "2.0.0"
+description = "Interactive CLI console for managing multi-protocol smart lighting devices via DMX LAN Bridge (Govee, LIFX, etc.)"
 authors = ["mccartyp <mccartyp@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "govee_artnet_console", from = "src"}]
-repository = "https://github.com/mccartyp/govee-artnet-console"
-keywords = ["govee", "artnet", "dmx", "lighting", "console", "cli"]
+packages = [{include = "dmx_lan_console", from = "src"}]
+repository = "https://github.com/mccartyp/dmx-lan-console"
+keywords = ["artnet", "dmx", "lighting", "console", "cli", "govee", "lifx", "smart-home"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -45,7 +45,7 @@ fastapi = ">=0.100.0"
 uvicorn = ">=0.23.0"
 
 [tool.poetry.scripts]
-govee-artnet-console = "govee_artnet_console.__main__:main"
+dmx-lan-console = "dmx_lan_console.__main__:main"
 
 [build-system]
 requires = ["poetry-core"]

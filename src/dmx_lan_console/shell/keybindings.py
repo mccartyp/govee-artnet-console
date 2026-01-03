@@ -1,4 +1,4 @@
-"""Key bindings configuration for the Govee ArtNet shell.
+"""Key bindings configuration for the DMX LAN Console shell.
 
 This module handles all keyboard shortcuts and key bindings for the
 interactive shell interface.
@@ -14,18 +14,18 @@ from prompt_toolkit.filters import Condition
 from prompt_toolkit.key_binding import KeyBindings
 
 if TYPE_CHECKING:
-    from .core import GoveeShell
+    from .core import ArtNetShell
 
 
 class KeyBindingManager:
     """Manages key bindings for the shell."""
 
-    def __init__(self, shell: GoveeShell):
+    def __init__(self, shell: ArtNetShell):
         """
         Initialize the key binding manager.
 
         Args:
-            shell: Reference to the GoveeShell instance
+            shell: Reference to the ArtNetShell instance
         """
         self.shell = shell
 

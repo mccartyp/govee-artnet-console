@@ -1,4 +1,4 @@
-"""Bridge API client for govee-artnet-console."""
+"""Bridge API client for dmx-lan-console."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from websockets.client import WebSocketClientProtocol
 
 
 class BridgeClient:
-    """Client for interacting with the Govee ArtNet Bridge API."""
+    """Client for interacting with the DMX LAN Bridge API."""
 
     def __init__(
         self,

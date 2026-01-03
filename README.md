@@ -1,22 +1,24 @@
-# Govee ArtNet Console
+# DMX LAN Console
 
-[![Latest Release](https://img.shields.io/github/v/release/mccartyp/govee-artnet-console)](https://github.com/mccartyp/govee-artnet-console/releases/latest)
-[![Download DEB](https://img.shields.io/badge/download-.deb-blue)](https://github.com/mccartyp/govee-artnet-console/releases/latest)
-[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/github/license/mccartyp/govee-artnet-console)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/mccartyp/dmx-lan-console)](https://github.com/mccartyp/dmx-lan-console/releases/latest)
+[![Download DEB](https://img.shields.io/badge/download-.deb-blue)](https://github.com/mccartyp/dmx-lan-console/releases/latest)
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads())
+[![License](https://img.shields.io/github/license/mccartyp/dmx-lan-console)](LICENSE)
 
-Interactive CLI console for managing Govee devices via the [Govee ArtNet LAN Bridge](https://github.com/mccartyp/govee-artnet-lan-bridge).
+Interactive CLI console for managing multi-protocol smart lighting devices (Govee, LIFX, etc.) via the [DMX LAN Bridge](https://github.com/mccartyp/govee-artnet-lan-bridge).
 
 ## Overview
 
-`govee-artnet-console` is a standalone command-line tool that provides an interactive shell interface for controlling and monitoring Govee smart lighting devices through the Govee ArtNet LAN Bridge REST API. It's designed as a thin client that can connect to local or remote bridge instances.
+`dmx-lan-console` is a standalone command-line tool that provides an interactive shell interface for controlling and monitoring smart lighting devices through the DMX LAN Bridge REST API. It's designed as a thin client that can connect to local or remote bridge instances and supports multiple protocols including Govee, LIFX, and more.
 
 ## Features
 
 ### Core Capabilities
 - **Interactive Shell**: Full-featured command shell with tab completion, history, and rich formatting
-- **Device Management**: List, configure, enable/disable, and control Govee devices
-- **DMX Mapping**: Create and manage ArtNet to Govee device mappings
+- **Multi-Protocol Support**: Manage Govee, LIFX, and other smart lighting devices from a single interface
+- **Device Management**: List, configure, enable/disable, and control devices across all supported protocols
+- **Protocol Filtering**: Filter devices by protocol ([cyan]🔵[/] Govee, [magenta]🟣[/] LIFX)
+- **DMX Mapping**: Create and manage ArtNet to device mappings
 - **Real-time Monitoring**: Comprehensive dashboards with health monitoring, device status, and statistics
 - **Event Streaming**: WebSocket-based real-time event notifications with background alerts
 - **Log Streaming**: Real-time log viewing with filtering and search capabilities
@@ -55,19 +57,19 @@ Interactive CLI console for managing Govee devices via the [Govee ArtNet LAN Bri
 
 #### Option 1: Install from .deb Package (Recommended for Ubuntu/Debian)
 
-**Quick download:** Visit the [Latest Release](https://github.com/mccartyp/govee-artnet-console/releases/latest) page and download the `.deb` file.
+**Quick download:** Visit the [Latest Release](https://github.com/mccartyp/dmx-lan-console/releases/latest) page and download the `.deb` file.
 
 **Or use command line:**
 ```bash
 # Download the latest .deb package (check releases page for exact filename)
-wget $(curl -s https://api.github.com/repos/mccartyp/govee-artnet-console/releases/latest | grep "browser_download_url.*\.deb" | cut -d '"' -f 4)
+wget $(curl -s https://api.github.com/repos/mccartyp/dmx-lan-console/releases/latest | grep "browser_download_url.*\.deb" | cut -d '"' -f 4)
 
 # Install the downloaded package
-sudo dpkg -i govee-artnet-console_*.deb
+sudo dpkg -i dmx-lan-console_*.deb
 
 # If you see dependency errors, install Python packages via pip
 pip3 install httpx websockets pyyaml rich prompt-toolkit
-sudo dpkg -i --force-depends govee-artnet-console_*.deb
+sudo dpkg -i --force-depends dmx-lan-console_*.deb
 ```
 
 **Tested on:**
@@ -79,8 +81,8 @@ sudo dpkg -i --force-depends govee-artnet-console_*.deb
 
 ```bash
 # Clone the repository
-git clone https://github.com/mccartyp/govee-artnet-console.git
-cd govee-artnet-console
+git clone https://github.com/mccartyp/dmx-lan-console.git
+cd dmx-lan-console
 
 # Install
 pip install .
@@ -95,20 +97,20 @@ See [INSTALLATION.md](docs/INSTALLATION.md) for detailed installation instructio
 
 ```bash
 # Start interactive shell (connects to localhost:8000 by default)
-govee-artnet-console
+dmx-lan-console
 
 # Connect to remote bridge
-govee-artnet-console --server-url http://192.168.1.100:8000
+dmx-lan-console --server-url http://192.168.1.100:8000
 
 # Use API key authentication
-govee-artnet-console --api-key YOUR_API_KEY
+dmx-lan-console --api-key YOUR_API_KEY
 
-# Or use environment variable
-export GOVEE_ARTNET_API_KEY=your-api-key
-govee-artnet-console
+# Or use environment variable (also supports legacy GOVEE_ARTNET_API_KEY)
+export ARTNET_LAN_API_KEY=your-api-key
+dmx-lan-console
 
 # Run single command without shell
-govee-artnet-console devices list --output table
+dmx-lan-console devices list --output table
 ```
 
 ### First Steps
@@ -116,15 +118,17 @@ govee-artnet-console devices list --output table
 Once in the shell:
 
 ```
-govee> monitor dashboard               # View comprehensive system dashboard
-govee> monitor devices                 # List all devices with detailed status
-govee> devices list                    # List all discovered devices
-govee> mappings create --device-id AA:BB:CC:DD:EE:FF:11:22 \
-                        --universe 0 --template RGB --start-channel 1
-govee> logs events                     # View real-time event stream
-govee> logs tail                       # Stream application logs in real-time
-govee> watch dashboard                 # Live updating dashboard (updates every 5s)
-govee> help                            # Show all available commands
+dmx-bridge> monitor dashboard               # View comprehensive system dashboard
+dmx-bridge> monitor devices                 # List all devices with detailed status
+dmx-bridge> devices list                    # List all discovered devices
+dmx-bridge> devices list --protocol govee   # List only Govee devices
+dmx-bridge> devices list --protocol lifx    # List only LIFX devices
+dmx-bridge> mappings create --device-id AA:BB:CC:DD:EE:FF:11:22 \
+                             --universe 1 --template RGB --start-channel 1
+dmx-bridge> logs events                     # View real-time event stream
+dmx-bridge> logs tail                       # Stream application logs in real-time
+dmx-bridge> watch dashboard                 # Live updating dashboard (updates every 5s)
+dmx-bridge> help                            # Show all available commands
 ```
 
 ### Dashboard & Monitoring Commands
@@ -144,11 +148,13 @@ logs events                            # Real-time event notifications (device, 
 logs events --type device              # Filter by event type (device|mapping|health)
 ```
 
+**Universe Default:** Mappings and views default to universe 1. sACN (E1.31) universes are 1–63999. Art-Net supports universe 0. Universe 0 is Art-Net-only in this application; universes 1+ are mergeable across protocols.
+
 **Note:** Event notifications appear automatically in the background while you work. Look for colored bubble indicators (🔵 🟢 🔴 ⚙️) in the console output!
 
 ## Configuration
 
-Configuration is stored at `~/.govee_artnet_console/config.yaml`:
+Configuration is stored at `~/.dmx_lan_console/config.yaml`:
 
 ```yaml
 # Server profiles
@@ -187,32 +193,33 @@ aliases:
 
 - [Installation Guide](docs/INSTALLATION.md) - Detailed installation instructions
 - [Usage Guide](docs/USAGE.md) - Complete command reference and examples
-- [Govee ArtNet Bridge](https://github.com/mccartyp/govee-artnet-lan-bridge) - Server component
+- [DMX LAN Bridge](https://github.com/mccartyp/govee-artnet-lan-bridge) - Server component
 
 ## Requirements
 
 - Python 3.10 or higher
-- Govee ArtNet LAN Bridge server running
+- DMX LAN Bridge server running
 - Network connectivity to bridge server
 
 ## Architecture
 
 ```
 ┌─────────────────────────┐
-│  govee-artnet-console   │  ← This package (CLI client)
+│  dmx-lan-console     │  ← This package (CLI client)
 │  (Interactive Shell)    │
 └────────────┬────────────┘
              │ HTTP/WebSocket
              │ (REST API)
 ┌────────────▼────────────┐
-│ govee-artnet-lan-bridge │  ← Bridge server
+│ artnet-lan-bridge       │  ← Bridge server (multi-protocol)
 │   (API Server)          │
 └────────────┬────────────┘
-             │ Govee LAN Protocol
+             │ Multi-Protocol Support
+             │ (Govee, LIFX, etc.)
              │ ArtNet (UDP)
 ┌────────────▼────────────┐
-│   Govee Smart Devices   │
-│ (Lights, Strips, etc.)  │
+│   Smart Light Devices   │
+│  Govee │ LIFX │ Others  │
 └─────────────────────────┘
 ```
 

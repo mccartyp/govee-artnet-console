@@ -1,4 +1,4 @@
-"""UI layout builder for the Govee ArtNet shell.
+"""UI layout builder for the DMX LAN Console shell.
 
 This module handles the construction of the prompt_toolkit UI layout,
 including windows, containers, and the application instance.
@@ -17,18 +17,18 @@ from prompt_toolkit.layout.controls import BufferControl
 from .ui_components import ANSILexer, TOOLBAR_STYLE
 
 if TYPE_CHECKING:
-    from .core import GoveeShell
+    from .core import ArtNetShell
 
 
 class LayoutBuilder:
     """Builds the prompt_toolkit UI layout for the shell."""
 
-    def __init__(self, shell: GoveeShell):
+    def __init__(self, shell: ArtNetShell):
         """
         Initialize the layout builder.
 
         Args:
-            shell: Reference to the GoveeShell instance
+            shell: Reference to the ArtNetShell instance
         """
         self.shell = shell
 

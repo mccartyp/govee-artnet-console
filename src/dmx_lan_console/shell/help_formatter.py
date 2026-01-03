@@ -1,4 +1,4 @@
-"""Help system for the Govee ArtNet shell.
+"""Help system for the DMX LAN Console shell.
 
 This module handles formatting and displaying help information for
 shell commands, including command-specific help and the main help table.
@@ -15,18 +15,18 @@ from rich.console import Console
 from rich.table import Table
 
 if TYPE_CHECKING:
-    from .core import GoveeShell
+    from .core import ArtNetShell
 
 
 class HelpFormatter:
     """Manages help formatting and display for shell commands."""
 
-    def __init__(self, shell: GoveeShell):
+    def __init__(self, shell: ArtNetShell):
         """
         Initialize the help formatter.
 
         Args:
-            shell: Reference to the GoveeShell instance
+            shell: Reference to the ArtNetShell instance
         """
         self.shell = shell
 
@@ -139,7 +139,7 @@ class HelpFormatter:
         temp_console = Console(file=buffer, force_terminal=True, width=self.shell.console.width)
 
         temp_console.print("═" * self.shell.console.width)
-        temp_console.print("Govee ArtNet Bridge Shell - Command Reference", style="bold cyan", justify="center")
+        temp_console.print("DMX LAN Console - Command Reference", style="bold cyan", justify="center")
         temp_console.print("═" * self.shell.console.width)
 
         # Create help table

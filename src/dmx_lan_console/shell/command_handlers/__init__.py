@@ -1,4 +1,4 @@
-"""Command handlers for the Govee ArtNet shell.
+"""Command handlers for the DMX LAN Console shell.
 
 This package contains command handler classes that implement various
 shell commands organized by domain:
@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..core import GoveeShell
+    from ..core import ArtNetShell
 
 
 class CommandHandler:
@@ -22,12 +22,12 @@ class CommandHandler:
     Provides access to shell state and common utilities.
     """
 
-    def __init__(self, shell: GoveeShell):
+    def __init__(self, shell: ArtNetShell):
         """
         Initialize the command handler.
 
         Args:
-            shell: Reference to the GoveeShell instance
+            shell: Reference to the ArtNetShell instance
         """
         self.shell = shell
 

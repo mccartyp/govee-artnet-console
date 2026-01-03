@@ -20,8 +20,8 @@ class DeviceCommandHandler(CommandHandler):
     def do_devices(self, arg: str) -> None:
         """
         Device commands: list, list detailed, enable, disable, set-name, set-capabilities, command.
-        Usage: devices list [--id ID] [--ip IP] [--state STATE]                              # Show simplified 2-line view
-               devices list detailed [--id ID] [--ip IP] [--state STATE]                     # Show full device details
+        Usage: devices list [--id ID] [--ip IP] [--state STATE] [--protocol PROTO]           # Show simplified 2-line view
+               devices list detailed [--id ID] [--ip IP] [--state STATE] [--protocol PROTO]  # Show full device details
                devices enable <device_id>
                devices disable <device_id>
                devices set-name <device_id> <name>                                           # Set device name (use "" to clear)
@@ -29,9 +29,11 @@ class DeviceCommandHandler(CommandHandler):
                devices command <device_id> [--on|--off] [--brightness N] [--color HEX] [--ct N]
         Examples:
             devices list
+            devices list --protocol govee
+            devices list --protocol lifx
             devices list --id AA:BB:CC:DD:EE:FFC
             devices list --ip 192.168.1.100
-            devices list --state active
+            devices list --state active --protocol govee
             devices list detailed --state offline
             devices set-name AA:BB:CC:DD:EE:FF "Kitchen Light"
             devices set-name AA:BB:CC:DD:EE:FF ""                            # Clear name
@@ -63,6 +65,7 @@ class DeviceCommandHandler(CommandHandler):
                 filter_id = None
                 filter_ip = None
                 filter_state = None
+                filter_protocol = None
                 is_detailed = False
 
                 i = 1
@@ -78,15 +81,18 @@ class DeviceCommandHandler(CommandHandler):
                     elif args[i] == "--state" and i + 1 < len(args):
                         filter_state = args[i + 1]
                         i += 1
+                    elif args[i] == "--protocol" and i + 1 < len(args):
+                        filter_protocol = args[i + 1]
+                        i += 1
                     i += 1
 
                 # Check if "detailed" subcommand was provided
                 if is_detailed:
                     # Show full detailed view with filters
-                    self._show_devices_detailed(filter_id, filter_ip, filter_state)
+                    self._show_devices_detailed(filter_id, filter_ip, filter_state, filter_protocol)
                 else:
                     # Show simplified 2-line view with filters
-                    self._show_devices_simple(filter_id, filter_ip, filter_state)
+                    self._show_devices_simple(filter_id, filter_ip, filter_state, filter_protocol)
             elif command == "enable" and len(args) >= 2:
                 device_id = args[1]
                 self.shell._capture_api_output(_device_set_enabled, self.client, device_id, True, self.config)
@@ -288,13 +294,14 @@ class DeviceCommandHandler(CommandHandler):
         except Exception:
             return "[dim]unknown[/]"
 
-    def _show_devices_simple(self, filter_id: Optional[str] = None, filter_ip: Optional[str] = None, filter_state: Optional[str] = None) -> None:
+    def _show_devices_simple(self, filter_id: Optional[str] = None, filter_ip: Optional[str] = None, filter_state: Optional[str] = None, filter_protocol: Optional[str] = None) -> None:
         """Show devices in simplified 2-line table format.
 
         Args:
             filter_id: Optional filter by device ID (MAC address)
             filter_ip: Optional filter by IP address
             filter_state: Optional filter by state (active, disabled, offline)
+            filter_protocol: Optional filter by protocol (govee, lifx, etc.)
         """
         try:
             # Fetch devices from API
@@ -310,6 +317,8 @@ class DeviceCommandHandler(CommandHandler):
                 devices = [d for d in devices if filter_id.lower() in d.get("id", "").lower()]
             if filter_ip:
                 devices = [d for d in devices if filter_ip in d.get("ip", "")]
+            if filter_protocol:
+                devices = [d for d in devices if d.get("protocol", "govee").lower() == filter_protocol.lower()]
             if filter_state:
                 state_lower = filter_state.lower()
                 filtered = []
@@ -331,21 +340,27 @@ class DeviceCommandHandler(CommandHandler):
                 self.shell._append_output("[yellow]No devices match the filters[/]\n")
                 return
 
-            # Create simplified table (reordered columns, removed Enabled/Configured, added Last Seen)
+            # Import protocol formatter
+            from ...config import format_protocol
+
+            # Create simplified table with protocol column
             table = Table(title=Text("Devices", justify="center"), show_header=True, header_style="bold cyan", box=box.ROUNDED)
             table.add_column("Device ID", style="cyan", width=23, no_wrap=True)
-            table.add_column("IP Address", style="green", width=15)
-            table.add_column("Name", style="blue", width=20)
-            table.add_column("Model", style="yellow", width=15)
-            table.add_column("State", style="white", width=20)
-            table.add_column("Last Seen", style="magenta", width=18)
+            table.add_column("Protocol", style="white", width=12)
+            table.add_column("IP", style="green", width=15)
+            table.add_column("Name", style="blue", width=18)
+            table.add_column("Model", style="yellow", width=12)
+            table.add_column("State", style="white", width=18)
+            table.add_column("Last Seen", style="magenta", width=15)
 
             # Add device rows
             for device in devices:
                 device_id = device.get("id", "N/A")[:23]  # Truncate long IDs
+                protocol = device.get("protocol", "govee")
+                protocol_display = format_protocol(protocol)
                 model = device.get("model_number", "Unknown")
                 ip_address = device.get("ip", "N/A")
-                name = device.get("name", "")
+                name = device.get("name")
                 name_display = name if name else "[dim]-[/]"
 
                 # Determine state(s)
@@ -353,13 +368,16 @@ class DeviceCommandHandler(CommandHandler):
                 is_offline = device.get("offline", False)
                 is_enabled = device.get("enabled", False)
                 is_configured = device.get("configured", False)
+                mapping_count = device.get("mapping_count", 0) or 0
 
                 if not is_offline and is_configured and is_enabled:
                     states.append(("[green]", "Active"))
-                if not is_enabled:
+                elif not is_enabled:
                     states.append(("[yellow]", "Disabled"))
-                if is_offline:
+                elif is_offline:
                     states.append(("[red]", "Offline"))
+                elif mapping_count == 0:
+                    states.append(("[yellow]", "Unmapped"))
 
                 # Format state column
                 if states:
@@ -372,6 +390,7 @@ class DeviceCommandHandler(CommandHandler):
 
                 table.add_row(
                     device_id,
+                    protocol_display,
                     ip_address,
                     name_display,
                     model,
@@ -385,13 +404,14 @@ class DeviceCommandHandler(CommandHandler):
         except Exception as exc:
             self.shell._append_output(f"[red]Error fetching devices: {exc}[/]\n")
 
-    def _show_devices_detailed(self, filter_id: Optional[str] = None, filter_ip: Optional[str] = None, filter_state: Optional[str] = None) -> None:
+    def _show_devices_detailed(self, filter_id: Optional[str] = None, filter_ip: Optional[str] = None, filter_state: Optional[str] = None, filter_protocol: Optional[str] = None) -> None:
         """Show devices in detailed card format with colors.
 
         Args:
             filter_id: Optional filter by device ID (MAC address)
             filter_ip: Optional filter by IP address
             filter_state: Optional filter by state (active, disabled, offline)
+            filter_protocol: Optional filter by protocol (govee, lifx, etc.)
         """
         try:
             # Fetch devices from API
@@ -407,6 +427,8 @@ class DeviceCommandHandler(CommandHandler):
                 devices = [d for d in devices if filter_id.lower() in d.get("id", "").lower()]
             if filter_ip:
                 devices = [d for d in devices if filter_ip in d.get("ip", "")]
+            if filter_protocol:
+                devices = [d for d in devices if d.get("protocol", "govee").lower() == filter_protocol.lower()]
             if filter_state:
                 state_lower = filter_state.lower()
                 filtered = []
@@ -428,6 +450,9 @@ class DeviceCommandHandler(CommandHandler):
                 self.shell._append_output("[yellow]No devices match the filters[/]\n")
                 return
 
+            # Import protocol formatter
+            from ...config import format_protocol
+
             # Print each device as a card
             for idx, device in enumerate(devices):
                 # Create a table for this device
@@ -438,11 +463,11 @@ class DeviceCommandHandler(CommandHandler):
                 # Key fields to display in order with colors
                 key_fields = [
                     ("Device ID", "id"),
+                    ("Protocol", "protocol"),
                     ("IP", "ip"),
                     ("Name", "name"),
                     ("Model", "model_number"),
                     ("Type", "device_type"),
-                    ("Description", "description"),
                     ("Enabled", "enabled"),
                     ("Manual", "manual"),
                     ("Discovered", "discovered"),
@@ -455,7 +480,12 @@ class DeviceCommandHandler(CommandHandler):
                 for label, key in key_fields:
                     if key in device and device[key] is not None:
                         value = device[key]
-                        if isinstance(value, bool):
+
+                        # Special handling for protocol
+                        if key == "protocol":
+                            value_str = format_protocol(value)
+                            table.add_row(f"[bold cyan]{label}[/]", value_str)
+                        elif isinstance(value, bool):
                             value_str = "✓" if value else "✗"
                             # Color coding for boolean values
                             if key in ("enabled", "configured", "discovered", "manual"):

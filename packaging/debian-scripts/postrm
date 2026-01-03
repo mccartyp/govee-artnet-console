@@ -1,0 +1,45 @@
+#!/bin/sh
+# postrm script for dmx-lan-console
+# See: dh_installdeb(1)
+
+set -e
+
+PACKAGE_DIR="/usr/lib/python3/dist-packages/dmx_lan_console"
+
+case "$1" in
+    remove|purge)
+        # Remove Python bytecode files and __pycache__ directories
+        if [ -d "$PACKAGE_DIR" ]; then
+            echo "Cleaning up Python bytecode files..."
+
+            # Remove .pyc and .pyo files
+            find "$PACKAGE_DIR" -type f -name '*.pyc' -delete 2>/dev/null || true
+            find "$PACKAGE_DIR" -type f -name '*.pyo' -delete 2>/dev/null || true
+
+            # Remove __pycache__ directories
+            find "$PACKAGE_DIR" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+
+            # Remove empty directories from bottom up
+            find "$PACKAGE_DIR" -type d -empty -delete 2>/dev/null || true
+
+            # Try to remove the main package directory if empty
+            rmdir "$PACKAGE_DIR" 2>/dev/null || true
+
+            # Try to remove parent dist-packages if empty (unlikely, but clean)
+            rmdir /usr/lib/python3/dist-packages 2>/dev/null || true
+        fi
+        ;;
+
+    upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        # Don't remove bytecode on upgrade
+        ;;
+
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

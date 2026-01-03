@@ -21,11 +21,13 @@ class MonitoringCommandHandler(CommandHandler):
     def do_channels(self, arg: str) -> None:
         """
         Channel commands: list channels for one or more universes.
-        Usage: channels list [universe...]    # Default universe is 0
+        Usage: channels list [universe...]    # Default universe is 1
         Examples:
-            channels list              # Show channels for universe 0
-            channels list 1            # Show channels for universe 1
-            channels list 0 1 2        # Show channels for universes 0, 1, and 2
+            channels list              # Show channels for universe 1
+            channels list 0            # Show channels for universe 0 (Art-Net only)
+            channels list 1 2 3        # Show channels for universes 1, 2, and 3
+        Note: sACN (E1.31) universes are 1–63999. Art-Net supports universe 0.
+              Universe 0 is Art-Net-only in this application; universes 1+ are mergeable across protocols.
         """
         if not self.client:
             self.shell._append_output("[red]Not connected. Use 'connect' first.[/]" + "\n")
@@ -45,8 +47,8 @@ class MonitoringCommandHandler(CommandHandler):
 
         try:
             if command == "list":
-                # Parse universe arguments (default to [0])
-                universes = [0]
+                # Parse universe arguments (default to [1])
+                universes = [1]
                 if len(args) > 1:
                     # Parse one or more universe numbers
                     try:
@@ -66,10 +68,10 @@ class MonitoringCommandHandler(CommandHandler):
         """Show Artnet channels for the specified universe(s).
 
         Args:
-            universes: List of ArtNet universe numbers (default [0])
+            universes: List of ArtNet universe numbers (default [1])
         """
         if universes is None:
-            universes = [0]
+            universes = [1]
 
         try:
             # Fetch mappings and devices without caching for fresh IP data
@@ -153,21 +155,27 @@ class MonitoringCommandHandler(CommandHandler):
             )
             table.add_column("Universe", style="dim", width=8, justify="right")
             table.add_column("Channel", style="cyan", width=8, justify="right")
-            table.add_column("Device ID", style="yellow", width=23)
+            table.add_column("Device ID", style="yellow", width=20)
+            table.add_column("Protocol", style="white", width=12)
             table.add_column("IP Address", style="green", width=15)
-            table.add_column("Name", style="blue", width=30)
-            table.add_column("Function", style="magenta", width=15)
-            table.add_column("Mapping ID", style="blue", width=12, justify="right")
+            table.add_column("Name", style="blue", width=25)
+            table.add_column("Function", style="magenta", width=12)
+            table.add_column("Mapping ID", style="blue", width=10, justify="right")
+
+            # Import protocol formatter
+            from ...config import format_protocol
 
             # Add rows for populated channels (sorted by universe, then channel number)
             for (universe, channel_num) in sorted(channel_map.keys()):
                 device_id, function, mapping_id = channel_map[(universe, channel_num)]
 
-                # Look up IP address and name dynamically from fresh device data
+                # Look up IP address, name, and protocol dynamically from fresh device data
                 device = device_lookup.get(device_id, {})
                 device_ip = device.get("ip", "N/A")
                 device_name = device.get("name", "")
+                device_protocol = device.get("protocol", "govee")
                 name_display = device_name if device_name else "[dim]-[/]"
+                protocol_display = format_protocol(device_protocol)
 
                 # Apply color coding to functions
                 if "Red" in function:
@@ -186,7 +194,8 @@ class MonitoringCommandHandler(CommandHandler):
                 table.add_row(
                     str(universe),
                     str(channel_num),
-                    device_id[:23],
+                    device_id[:20],
+                    protocol_display,
                     device_ip,
                     name_display,
                     function_style,
@@ -424,12 +433,15 @@ class MonitoringCommandHandler(CommandHandler):
             # Fetch data in parallel
             self.shell._append_output("[bold cyan]Fetching dashboard data...[/]\n")
             health_data = _handle_response(self.client.get("/health"))
+            status_data = _handle_response(self.client.get("/status"))
             devices_data = _handle_response(self.client.get("/devices"))
             mappings_data = _handle_response(self.client.get("/mappings"))
 
             # Handle None responses
             if health_data is None:
                 health_data = {}
+            if status_data is None:
+                status_data = {}
             if devices_data is None:
                 devices_data = []
             if mappings_data is None:
@@ -451,7 +463,7 @@ class MonitoringCommandHandler(CommandHandler):
 
             # Create header
             self.shell._append_output("\n")
-            header_text = "─ Govee ArtNet Bridge Dashboard "
+            header_text = "─ DMX LAN Console Dashboard "
             remaining = INNER_WIDTH - len(header_text)
             self.shell._append_output(f"[bold cyan]┌{header_text}{'─' * remaining}┐[/]\n")
 
@@ -556,6 +568,46 @@ class MonitoringCommandHandler(CommandHandler):
 
                     self.shell._append_output(line + "\n")
 
+                self.shell._append_output(f"[bold cyan]├{'─' * INNER_WIDTH}┤[/]\n")
+
+            # Protocol Stats Section
+            protocols_stats = status_data.get("protocols", {})
+            if protocols_stats:
+                from ...config import format_protocol
+
+                protocol_title = "[bold]Protocol Breakdown[/]"
+                title_padding = INNER_WIDTH - len("Protocol Breakdown") - 2
+                self.shell._append_output(f"[bold cyan]│[/] {protocol_title}{' ' * title_padding} [bold cyan]│[/]\n")
+                self.shell._append_output("[bold cyan]│[/]" + " " * INNER_WIDTH + "[bold cyan]│[/]\n")
+
+                # Create protocol stats table - compact format
+                for protocol_name, stats in sorted(protocols_stats.items()):
+                    proto_display = format_protocol(protocol_name)
+                    total = stats.get("total", 0)
+                    enabled = stats.get("enabled", 0)
+                    offline = stats.get("offline", 0)
+
+                    # Format: "  🔵 Govee: 5 total (4 enabled, 1 offline)"
+                    content = f"  {proto_display}: {total} total ("
+                    if enabled > 0:
+                        content += f"[green]{enabled} enabled[/]"
+                    else:
+                        content += f"[dim]{enabled} enabled[/]"
+
+                    if offline > 0:
+                        content += f", [red]{offline} offline[/]"
+                    else:
+                        content += f", [dim]{offline} offline[/]"
+                    content += ")"
+
+                    # Calculate padding using rendered text width (markup stripped)
+                    visible_length = Text.from_markup(content).cell_len
+                    padding_needed = max(0, INNER_WIDTH - visible_length)
+
+                    line = f"[bold cyan]│[/]{content}{' ' * padding_needed}[bold cyan]│[/]"
+                    self.shell._append_output(line + "\n")
+
+                self.shell._append_output("[bold cyan]│[/]" + " " * INNER_WIDTH + "[bold cyan]│[/]\n")
                 self.shell._append_output(f"[bold cyan]├{'─' * INNER_WIDTH}┤[/]\n")
 
             # Device Table

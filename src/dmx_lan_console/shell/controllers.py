@@ -21,10 +21,12 @@ from typing import TYPE_CHECKING, Optional
 import websockets
 from prompt_toolkit.document import Document
 
+from .ui_components import FIELD_DESCRIPTIONS
+
 if TYPE_CHECKING:
     from prompt_toolkit import Application
     from prompt_toolkit.buffer import Buffer
-    from ..shell.core import GoveeShell
+    from ..shell.core import ArtNetShell
 
 
 class ConnectionState(Enum):
@@ -401,7 +403,7 @@ class EventsController:
     BATCH_INTERVAL = 0.1  # 100ms batching interval
     MAX_RECONNECT_DELAY = 10.0  # Max backoff delay
 
-    def __init__(self, app: Application, events_buffer: Buffer, server_url: str, shell: GoveeShell):
+    def __init__(self, app: Application, events_buffer: Buffer, server_url: str, shell: ArtNetShell):
         """
         Initialize the events controller.
 
@@ -409,7 +411,7 @@ class EventsController:
             app: The prompt_toolkit Application instance
             events_buffer: Buffer to append event lines to (for logs events view)
             server_url: Base HTTP server URL (will be converted to WebSocket)
-            shell: Reference to GoveeShell for console notifications
+            shell: Reference to ArtNetShell for console notifications
         """
         self.app = app
         self.events_buffer = events_buffer
@@ -601,6 +603,8 @@ class EventsController:
             universe = data.get("universe", "?")
             channel = data.get("channel", "?")
             device_id = data.get("device_id", "")
+            field = data.get("field")
+            fields = data.get("fields", [])
 
             # Try to get device info from cache if device_id provided
             device_part = ""
@@ -609,8 +613,46 @@ class EventsController:
                 ip_part = f" ({ip})" if ip else ""
                 device_part = f" → Device {device_id}{ip_part}"
 
-            # Format: ⚙️  *** Mapping Created: Universe 0, Channel 1 → Device AA:BB:CC (192.168.1.100)
-            return f"⚙️  [blue]*** Mapping Created:[/] Universe {universe}, Channel {channel}{device_part}\n"
+            # Format field type at the end
+            field_part = ""
+            if field:
+                # Single field mapping
+                pretty_field = FIELD_DESCRIPTIONS.get(field, field.capitalize())
+                # Apply color coding
+                if "Red" in pretty_field:
+                    field_part = f" [dim]([/][red]{pretty_field}[/][dim])[/]"
+                elif "Green" in pretty_field:
+                    field_part = f" [dim]([/][green]{pretty_field}[/][dim])[/]"
+                elif "Blue" in pretty_field:
+                    field_part = f" [dim]([/][blue]{pretty_field}[/][dim])[/]"
+                elif "White" in pretty_field or "Dimmer" in pretty_field:
+                    field_part = f" [dim]([/][white]{pretty_field}[/][dim])[/]"
+                elif "Temp" in pretty_field:
+                    field_part = f" [dim]([/][yellow]{pretty_field}[/][dim])[/]"
+                else:
+                    field_part = f" [dim]({pretty_field})[/]"
+            elif fields:
+                # Multi-field mapping - show ALL fields with color coding
+                colored_fields = []
+                for f in fields:
+                    pretty_field = FIELD_DESCRIPTIONS.get(f, f.capitalize())
+                    # Apply color coding
+                    if "Red" in pretty_field:
+                        colored_fields.append(f"[red]{pretty_field}[/]")
+                    elif "Green" in pretty_field:
+                        colored_fields.append(f"[green]{pretty_field}[/]")
+                    elif "Blue" in pretty_field:
+                        colored_fields.append(f"[blue]{pretty_field}[/]")
+                    elif "White" in pretty_field or "Dimmer" in pretty_field:
+                        colored_fields.append(f"[white]{pretty_field}[/]")
+                    elif "Temp" in pretty_field:
+                        colored_fields.append(f"[yellow]{pretty_field}[/]")
+                    else:
+                        colored_fields.append(pretty_field)
+                field_part = f" [dim]([/]{', '.join(colored_fields)}[dim])[/]"
+
+            # Format: ⚙️  *** Mapping Created: Universe 0, Channel 1 → Device AA:BB:CC (192.168.1.100) (Red, Green, Blue)
+            return f"⚙️  [blue]*** Mapping Created:[/] Universe {universe}, Channel {channel}{device_part}{field_part}\n"
 
         elif event_type == "mapping_deleted":
             mapping_id = data.get("mapping_id", "?")
@@ -737,10 +779,21 @@ class EventsController:
             mapping_id = data.get("mapping_id", "?")
             universe = data.get("universe", "?")
             channel = data.get("channel", "?")
+            field = data.get("field")
+            fields = data.get("fields", [])
 
             formatted = f"{dim}[{time_str}]{reset} ⚙️  {blue}Mapping Created{reset}\n"
             formatted += f"{dim}  ╰─► {reset}ID: {mapping_id}\n"
             formatted += f"{dim}     {reset}Universe: {universe}, Channel: {channel}\n"
+
+            # Add field information if available
+            if field:
+                pretty_field = FIELD_DESCRIPTIONS.get(field, field.capitalize())
+                formatted += f"{dim}     {reset}Field: {pretty_field}\n"
+            elif fields:
+                pretty_fields = [FIELD_DESCRIPTIONS.get(f, f.capitalize()) for f in fields]
+                formatted += f"{dim}     {reset}Fields: {', '.join(pretty_fields)}\n"
+
             return formatted
 
         elif event_type == "mapping_updated":
@@ -936,14 +989,14 @@ class WatchController:
     # Default refresh interval
     DEFAULT_REFRESH_INTERVAL = 5.0  # 5 seconds
 
-    def __init__(self, app: Application, watch_buffer: Buffer, shell: GoveeShell):
+    def __init__(self, app: Application, watch_buffer: Buffer, shell: ArtNetShell):
         """
         Initialize the watch controller.
 
         Args:
             app: The prompt_toolkit Application instance
             watch_buffer: Buffer to display watch output
-            shell: Reference to GoveeShell instance for executing commands
+            shell: Reference to ArtNetShell instance for executing commands
         """
         self.app = app
         self.watch_buffer = watch_buffer
@@ -1085,14 +1138,14 @@ class LogViewController:
     # Auto-refresh interval
     REFRESH_INTERVAL = 5.0  # 5 seconds
 
-    def __init__(self, app: Application, log_view_buffer: Buffer, shell: GoveeShell):
+    def __init__(self, app: Application, log_view_buffer: Buffer, shell: ArtNetShell):
         """
         Initialize the log view controller.
 
         Args:
             app: The prompt_toolkit Application instance
             log_view_buffer: Buffer to display log view output
-            shell: Reference to GoveeShell instance for API calls
+            shell: Reference to ArtNetShell instance for API calls
         """
         self.app = app
         self.log_view_buffer = log_view_buffer

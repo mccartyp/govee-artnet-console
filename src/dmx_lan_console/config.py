@@ -1,4 +1,4 @@
-"""Configuration management for govee-artnet-console."""
+"""Configuration management for dmx-lan-console."""
 
 from __future__ import annotations
 
@@ -11,9 +11,47 @@ import yaml
 
 
 # Default configuration directory
-DEFAULT_CONFIG_DIR = Path.home() / ".govee_artnet_console"
+DEFAULT_CONFIG_DIR = Path.home() / ".dmx_lan_console"
 DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "config.yaml"
 DEFAULT_HISTORY_FILE = DEFAULT_CONFIG_DIR / "shell_history"
+
+# Protocol display configuration
+PROTOCOL_COLORS = {
+    "govee": "cyan",
+    "lifx": "magenta",
+    "unknown": "dim white",
+}
+
+PROTOCOL_EMOJIS = {
+    "govee": "🔵",  # Blue circle
+    "lifx": "🟣",   # Purple circle
+    "unknown": "⚪", # White circle
+}
+
+
+def format_protocol(protocol: str) -> str:
+    """Format protocol name with colored emoji indicator.
+
+    Uses Rich markup to ensure consistent emoji rendering across terminals.
+
+    Args:
+        protocol: Protocol name (govee, lifx, etc.)
+
+    Returns:
+        Rich-formatted string with colored emoji and protocol name
+
+    Examples:
+        >>> format_protocol("govee")
+        '[cyan]🔵[/] Govee'
+        >>> format_protocol("lifx")
+        '[magenta]🟣[/] LIFX'
+    """
+    protocol_lower = (protocol or "unknown").lower()
+    emoji = PROTOCOL_EMOJIS.get(protocol_lower, PROTOCOL_EMOJIS["unknown"])
+    color = PROTOCOL_COLORS.get(protocol_lower, PROTOCOL_COLORS["unknown"])
+
+    # Return colored emoji + protocol name (capitalized)
+    return f"[{color}]{emoji}[/] {protocol.title() if protocol else 'Unknown'}"
 
 
 @dataclass
@@ -69,7 +107,7 @@ class ShellPreferences:
 
 @dataclass
 class ConsoleConfig:
-    """Main configuration for govee-artnet-console."""
+    """Main configuration for dmx-lan-console."""
 
     servers: dict[str, ServerProfile] = field(default_factory=dict)
     active_server: str = "default"
@@ -148,8 +186,8 @@ class ConsoleConfig:
 
     def get_api_key_for_server(self, server_name: str) -> Optional[str]:
         """Get API key for a server, checking environment variable first."""
-        # Check environment variable first (e.g., GOVEE_ARTNET_API_KEY)
-        env_key = os.environ.get("GOVEE_ARTNET_API_KEY")
+        # Check environment variable first
+        env_key = os.environ.get("DMX_LAN_API_KEY")
         if env_key:
             return env_key
 

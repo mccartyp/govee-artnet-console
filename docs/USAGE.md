@@ -1,6 +1,6 @@
-# Govee ArtNet CLI Shell Guide
+# DMX LAN Console Guide
 
-The Govee ArtNet CLI includes a powerful interactive shell mode that provides real-time monitoring, log viewing, and enhanced usability features for managing your bridge.
+The DMX LAN Console includes a powerful interactive shell mode that provides real-time monitoring, log viewing, and enhanced usability features for managing your multi-protocol smart lighting devices via the DMX LAN Bridge.
 
 ## Table of Contents
 
@@ -18,19 +18,21 @@ The Govee ArtNet CLI includes a powerful interactive shell mode that provides re
 
 ```bash
 # Start interactive shell
-govee-artnet shell
+dmx-lan-console
 
 # Or with custom server URL
-govee-artnet --server-url http://192.168.1.100:8000 shell
+dmx-lan-console --server-url http://192.168.1.100:8000
 ```
 
 ### First Steps
 
 ```
-govee> help            # Show available commands
-govee> tips            # Show helpful tips
-govee> status          # Check bridge connection status
-govee> devices list    # List discovered devices
+dmx-bridge> help                    # Show available commands
+dmx-bridge> tips                    # Show helpful tips
+dmx-bridge> status                  # Check bridge connection status
+dmx-bridge> devices list            # List all discovered devices
+dmx-bridge> devices list --protocol govee   # List only Govee devices
+dmx-bridge> devices list --protocol lifx    # List only LIFX devices
 ```
 
 ## Core Features
@@ -40,17 +42,18 @@ govee> devices list    # List discovered devices
 Watch your system in action with comprehensive monitoring commands:
 
 ```bash
-govee> monitor dashboard    # Comprehensive dashboard with health + devices + stats
-govee> monitor devices      # Detailed device table with all fields
-govee> monitor stats        # System statistics summary
-govee> watch dashboard      # Live updating dashboard (auto-refresh every 5s)
-govee> watch devices        # Live updating device monitor
+dmx-bridge> monitor dashboard    # Comprehensive dashboard with health + devices + stats
+dmx-bridge> monitor devices      # Detailed device table with all fields
+dmx-bridge> monitor stats        # System statistics summary
+dmx-bridge> watch dashboard      # Live updating dashboard (auto-refresh every 5s)
+dmx-bridge> watch devices        # Live updating device monitor
 ```
 
 **Monitor Dashboard** displays:
 - **Statistics Summary Cards**: Total Devices, Online, Offline, Mappings count
+- **Protocol Breakdown**: Device counts per protocol (🔵 Govee, 🟣 LIFX, etc.)
 - **System Health Panel**: Status of all subsystems (discovery, sender, artnet, api, poller)
-- **Device Table**: Top 10 devices with Device ID, Status, IP, Model, Last Seen, and Mappings
+- **Device Table**: Top 10 devices with Device ID, Protocol, Status, IP, Model, Last Seen, and Mappings
 - Relative time formatting (e.g., "2m ago", "5h ago")
 - ANSI box drawing for clean, aligned borders
 
@@ -65,16 +68,16 @@ govee> watch devices        # Live updating device monitor
 View and search logs without leaving the shell:
 
 ```bash
-govee> logs view                 # Show last 50 log lines (paginated)
-govee> logs tail                 # Stream logs in real-time (WebSocket)
-govee> logs search "discovered"  # Search logs for pattern
+dmx-bridge> logs view                 # Show last 50 log lines (paginated)
+dmx-bridge> logs tail                 # Stream logs in real-time (WebSocket)
+dmx-bridge> logs search "discovered"  # Search logs for pattern
 ```
 
 **Log filtering:**
 ```bash
-govee> logs view --level ERROR        # Show only error-level logs
-govee> logs tail --level ERROR        # Tail only error-level logs
-govee> logs tail --logger discovery   # Show logs from discovery subsystem
+dmx-bridge> logs view --level ERROR        # Show only error-level logs
+dmx-bridge> logs tail --level ERROR        # Tail only error-level logs
+dmx-bridge> logs tail --logger discovery   # Show logs from discovery subsystem
 ```
 
 ### 🔔 Real-Time Event Streaming
@@ -82,10 +85,10 @@ govee> logs tail --logger discovery   # Show logs from discovery subsystem
 Monitor system events as they happen with the event streaming feature:
 
 ```bash
-govee> logs events                    # View real-time event stream
-govee> logs events --type device      # Filter device events only
-govee> logs events --type mapping     # Filter mapping events only
-govee> logs events --type health      # Filter health events only
+dmx-bridge> logs events                    # View real-time event stream
+dmx-bridge> logs events --type device      # Filter device events only
+dmx-bridge> logs events --type mapping     # Filter mapping events only
+dmx-bridge> logs events --type health      # Filter health events only
 ```
 
 **Event Types:**
@@ -116,7 +119,7 @@ Events are displayed in two ways:
 
 - **Tab completion** - Press Tab to autocomplete commands
 - **History navigation** - Use ↑/↓ arrows to navigate command history
-- **Persistent history** - Command history saved to `~/.govee_artnet_console/shell_history`
+- **Persistent history** - Command history saved to `~/.dmx_lan_console/shell_history`
 - **Reverse search** - Press Ctrl+R to search command history
 
 ### 🔖 Bookmarks
@@ -124,13 +127,13 @@ Events are displayed in two ways:
 Save frequently used device IDs with friendly names:
 
 ```bash
-govee> bookmark add kitchen "AA:BB:CC:DD:EE:FF"
-govee> bookmark add bedroom "11:22:33:44:55:66"
-govee> bookmark list
+dmx-bridge> bookmark add kitchen "AA:BB:CC:DD:EE:FF"
+dmx-bridge> bookmark add bedroom "11:22:33:44:55:66"
+dmx-bridge> bookmark list
 
 # Use bookmarks in commands
-govee> devices enable @kitchen
-govee> mappings create --device-id @bedroom --universe 0 --template RGB
+dmx-bridge> devices enable @kitchen
+dmx-bridge> mappings create --device-id @bedroom --universe 1 --template RGB
 ```
 
 **Bookmark commands:**
@@ -144,13 +147,13 @@ govee> mappings create --device-id @bedroom --universe 0 --template RGB
 Create shortcuts for frequently used commands:
 
 ```bash
-govee> alias dl "devices list"
-govee> alias ds "devices"
-govee> alias ml "mappings list"
+dmx-bridge> alias dl "devices list"
+dmx-bridge> alias ds "devices"
+dmx-bridge> alias ml "mappings list"
 
 # Use aliases
-govee> dl           # Executes "devices list"
-govee> ds enable @kitchen   # Executes "devices enable @kitchen"
+dmx-bridge> dl           # Executes "devices list"
+dmx-bridge> ds enable @kitchen   # Executes "devices enable @kitchen"
 ```
 
 **Alias commands:**
@@ -164,25 +167,25 @@ govee> ds enable @kitchen   # Executes "devices enable @kitchen"
 ### Connection Management
 
 ```bash
-govee> connect              # Connect to the bridge server
-govee> disconnect           # Disconnect from server
-govee> status              # Show connection status
+dmx-bridge> connect              # Connect to the bridge server
+dmx-bridge> disconnect           # Disconnect from server
+dmx-bridge> status              # Show connection status
 ```
 
 ### Device Management
 
 ```bash
-govee> devices list                           # List all devices (simplified view)
-govee> devices list detailed                  # Show detailed device information
-govee> devices list --state active            # Filter by state (active, disabled, offline)
-govee> devices list --id AA:BB:CC             # Filter by device ID (MAC address)
-govee> devices list --ip 192.168.1.100        # Filter by IP address
-govee> devices list detailed --state offline  # Detailed view with filters
-govee> devices enable <device_id>             # Enable a device
-govee> devices disable <device_id>            # Disable a device
-govee> devices set-name <device_id> "Name"    # Set device name
-govee> devices set-capabilities <device_id> --brightness true --color true  # Set capabilities
-govee> devices command <device_id> [options]  # Send control commands
+dmx-bridge> devices list                           # List all devices (simplified view)
+dmx-bridge> devices list detailed                  # Show detailed device information
+dmx-bridge> devices list --state active            # Filter by state (active, disabled, offline)
+dmx-bridge> devices list --id AA:BB:CC             # Filter by device ID (MAC address)
+dmx-bridge> devices list --ip 192.168.1.100        # Filter by IP address
+dmx-bridge> devices list detailed --state offline  # Detailed view with filters
+dmx-bridge> devices enable <device_id>             # Enable a device
+dmx-bridge> devices disable <device_id>            # Disable a device
+dmx-bridge> devices set-name <device_id> "Name"    # Set device name
+dmx-bridge> devices set-capabilities <device_id> --brightness true --color true  # Set capabilities
+dmx-bridge> devices command <device_id> [options]  # Send control commands
 ```
 
 #### Device Control Commands
@@ -191,37 +194,37 @@ Send control commands to devices directly from the shell:
 
 ```bash
 # Turn device on/off
-govee> devices command AA:BB:CC:DD:EE:FF --on
-govee> devices command AA:BB:CC:DD:EE:FF --off
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --on
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --off
 
 # Set brightness (0-255)
-govee> devices command AA:BB:CC:DD:EE:FF --brightness 200
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --brightness 200
 
 # Set RGB color (hex format)
-govee> devices command AA:BB:CC:DD:EE:FF --color #FF00FF
-govee> devices command AA:BB:CC:DD:EE:FF --color ff8800
-govee> devices command AA:BB:CC:DD:EE:FF --color F0F    # Shorthand expands to FF00FF
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --color #FF00FF
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --color ff8800
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --color F0F    # Shorthand expands to FF00FF
 
 # Set color temperature (0-255)
-govee> devices command AA:BB:CC:DD:EE:FF --ct 128
-govee> devices command AA:BB:CC:DD:EE:FF --kelvin 200  # Same as --ct
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --ct 128
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --kelvin 200  # Same as --ct
 
 # Combine multiple commands
-govee> devices command AA:BB:CC:DD:EE:FF --on --brightness 200 --color #FF00FF
-govee> devices command AA:BB:CC:DD:EE:FF --color ff8800 --brightness 128
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --on --brightness 200 --color #FF00FF
+dmx-bridge> devices command AA:BB:CC:DD:EE:FF --color ff8800 --brightness 128
 
 # Use bookmarks for convenience
-govee> bookmark add kitchen "AA:BB:CC:DD:EE:FF"
-govee> devices command @kitchen --on --color #00FF00
+dmx-bridge> bookmark add kitchen "AA:BB:CC:DD:EE:FF"
+dmx-bridge> devices command @kitchen --on --color #00FF00
 ```
 
 ### Mapping Management
 
 ```bash
-govee> mappings list                          # List all mappings
-govee> mappings get <id>                      # Get mapping details
-govee> mappings delete <id>                   # Delete a mapping
-govee> mappings channel-map                   # Show channel map
+dmx-bridge> mappings list                          # List all mappings
+dmx-bridge> mappings get <id>                      # Get mapping details
+dmx-bridge> mappings delete <id>                   # Delete a mapping
+dmx-bridge> mappings channel-map                   # Show channel map
 ```
 
 ### Monitoring Commands
@@ -229,11 +232,11 @@ govee> mappings channel-map                   # Show channel map
 #### Static Snapshots (Execute Once)
 
 ```bash
-govee> monitor dashboard                      # Comprehensive dashboard
-govee> monitor devices                        # Detailed device table
-govee> monitor stats                          # System statistics summary
-govee> logs view                              # View recent logs (paginated)
-govee> logs events                            # Real-time event stream viewer
+dmx-bridge> monitor dashboard                      # Comprehensive dashboard
+dmx-bridge> monitor devices                        # Detailed device table
+dmx-bridge> monitor stats                          # System statistics summary
+dmx-bridge> logs view                              # View recent logs (paginated)
+dmx-bridge> logs events                            # Real-time event stream viewer
 ```
 
 **Monitor Dashboard Example Output:**
@@ -270,8 +273,8 @@ Summary: 12 total devices | 10 online | 2 offline | 8 mappings
 #### Live Updating Views (Auto-Refresh)
 
 ```bash
-govee> watch dashboard                        # Live dashboard (updates every 5s)
-govee> watch devices                          # Live device monitor
+dmx-bridge> watch dashboard                        # Live dashboard (updates every 5s)
+dmx-bridge> watch devices                          # Live device monitor
 ```
 
 **Watch Mode Controls:**
@@ -282,10 +285,10 @@ govee> watch devices                          # Live device monitor
 #### Event Streaming
 
 ```bash
-govee> logs events                            # View all events in real-time
-govee> logs events --type device              # Filter device events only
-govee> logs events --type mapping             # Filter mapping events only
-govee> logs events --type health              # Filter health events only
+dmx-bridge> logs events                            # View all events in real-time
+dmx-bridge> logs events --type device              # Filter device events only
+dmx-bridge> logs events --type mapping             # Filter mapping events only
+dmx-bridge> logs events --type health              # Filter health events only
 ```
 
 **Event Stream Example Output:**
@@ -304,16 +307,22 @@ govee> logs events --type health              # Filter health events only
 [2024-01-15 14:30:30] mapping_created
   Mapping ID: 123
   Device ID: AA:BB:CC:DD:EE:FF (Kitchen Light)
-  Universe: 0
+  Universe: 1
   Channel: 1-3
   Template: RGB
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
+**Universe Default Information:**
+- Default universe for mappings and views is **universe 1**
+- sACN (E1.31) universes: 1–63999
+- Art-Net supports universe 0
+- Universe 0 is Art-Net-only in this application; universes 1+ are mergeable across protocols
+
 **Background Event Notifications:**
 While working in the shell, you'll see terse event notifications automatically:
 ```
-govee> devices list
+dmx-bridge> devices list
 🔵 *** Device Discovered: AA:BB:CC:DD:EE:FF (Kitchen Light) at 192.168.1.100
 🟢 *** Device Online: AA:BB:CC:DD:EE:FF (Kitchen Light)
 Device ID              Status    IP              Model
@@ -323,31 +332,31 @@ AA:BB:CC:DD:EE:FF     🟢 Online  192.168.1.100  H6046
 #### Log Viewing
 
 ```bash
-govee> logs view                              # View recent logs (paginated)
-govee> logs view --level ERROR                # Filter by log level
-govee> logs view --logger discovery           # Filter by logger name
-govee> logs tail                              # Stream logs in real-time
-govee> logs tail --level ERROR --logger api   # Tail with filters
-govee> logs search "discovered"               # Search logs for pattern
+dmx-bridge> logs view                              # View recent logs (paginated)
+dmx-bridge> logs view --level ERROR                # Filter by log level
+dmx-bridge> logs view --logger discovery           # Filter by logger name
+dmx-bridge> logs tail                              # Stream logs in real-time
+dmx-bridge> logs tail --level ERROR --logger api   # Tail with filters
+dmx-bridge> logs search "discovered"               # Search logs for pattern
 ```
 
 ### Output Control
 
 ```bash
-govee> output --format json    # Switch to JSON output
-govee> output --format yaml    # Switch to YAML output
-govee> output --format table   # Switch to table output (default)
+dmx-bridge> output --format json    # Switch to JSON output
+dmx-bridge> output --format yaml    # Switch to YAML output
+dmx-bridge> output --format table   # Switch to table output (default)
 ```
 
 ### Shell Utilities
 
 ```bash
-govee> help                    # Show all commands
-govee> help <command>          # Show help for specific command
-govee> version                 # Show shell version
-govee> tips                    # Show helpful tips
-govee> clear                   # Clear the screen
-govee> exit                    # Exit the shell (or Ctrl+D)
+dmx-bridge> help                    # Show all commands
+dmx-bridge> help <command>          # Show help for specific command
+dmx-bridge> version                 # Show shell version
+dmx-bridge> tips                    # Show helpful tips
+dmx-bridge> clear                   # Clear the screen
+dmx-bridge> exit                    # Exit the shell (or Ctrl+D)
 ```
 
 ## Advanced Features
@@ -392,7 +401,7 @@ Execute multiple commands from a file:
 
 ```bash
 # Create a script file
-$ cat > setup.govee <<EOF
+$ cat > setup.artnet <<EOF
 connect
 devices list
 monitor dashboard
@@ -400,7 +409,7 @@ logs events --type device
 EOF
 
 # Run the batch file
-govee-artnet-console batch load setup.govee
+dmx-lan-console batch load setup.artnet
 ```
 
 ### 💾 Session Management
@@ -408,15 +417,15 @@ govee-artnet-console batch load setup.govee
 Save and restore shell sessions:
 
 ```bash
-govee> session save my-setup              # Save current state
-govee> session list                       # List saved sessions
-govee> session load my-setup              # Restore a session
-govee> session delete my-setup            # Delete a session
+dmx-bridge> session save my-setup              # Save current state
+dmx-bridge> session list                       # List saved sessions
+dmx-bridge> session load my-setup              # Restore a session
+dmx-bridge> session delete my-setup            # Delete a session
 ```
 
 ## Configuration
 
-The shell configuration is stored at `~/.govee_artnet_console/config.yaml`:
+The shell configuration is stored at `~/.dmx_lan_console/config.yaml`:
 
 ```yaml
 # Server profiles
@@ -458,13 +467,13 @@ Set these environment variables to configure the shell:
 
 ```bash
 # Server URL
-export GOVEE_ARTNET_SERVER_URL=http://192.168.1.100:8000
+export ARTNET_LAN_SERVER_URL=http://192.168.1.100:8000
 
-# API key for authentication
-export GOVEE_ARTNET_API_KEY=your-api-key-here
+# API key for authentication (legacy GOVEE_ARTNET_API_KEY also supported)
+export ARTNET_LAN_API_KEY=your-api-key-here
 
 # Default output format
-export GOVEE_ARTNET_OUTPUT_FORMAT=json  # json, yaml, or table
+export ARTNET_LAN_OUTPUT_FORMAT=json  # json, yaml, or table
 ```
 
 ## Tips and Tricks
@@ -472,9 +481,9 @@ export GOVEE_ARTNET_OUTPUT_FORMAT=json  # json, yaml, or table
 ### Quick Device Discovery Workflow
 
 ```bash
-govee> monitor dashboard              # Check system health and device count
-govee> monitor devices                # List all devices with details
-govee> logs events --type device      # Monitor device events in real-time
+dmx-bridge> monitor dashboard              # Check system health and device count
+dmx-bridge> monitor devices                # List all devices with details
+dmx-bridge> logs events --type device      # Monitor device events in real-time
 ```
 
 ### Monitoring Multiple Screens
@@ -483,18 +492,18 @@ Use multiple terminal windows for comprehensive monitoring:
 
 **Terminal 1**: Watch dashboard
 ```bash
-govee> watch dashboard
+dmx-bridge> watch dashboard
 ```
 
 **Terminal 2**: Monitor events
 ```bash
-govee> logs events
+dmx-bridge> logs events
 ```
 
 **Terminal 3**: Interactive shell
 ```bash
-govee> devices list
-govee> mappings list
+dmx-bridge> devices list
+dmx-bridge> mappings list
 ```
 
 ### Event Notification Best Practices
@@ -508,16 +517,16 @@ govee> mappings list
 
 ```bash
 # Create bookmarks for frequently used devices
-govee> bookmark add kitchen "AA:BB:CC:DD:EE:FF"
-govee> bookmark add bedroom "11:22:33:44:55:66"
+dmx-bridge> bookmark add kitchen "AA:BB:CC:DD:EE:FF"
+dmx-bridge> bookmark add bedroom "11:22:33:44:55:66"
 
 # Use bookmarks in commands
-govee> devices command @kitchen --on --brightness 255
-govee> mappings create --device-id @bedroom --universe 0 --template RGB
+dmx-bridge> devices command @kitchen --on --brightness 255
+dmx-bridge> mappings create --device-id @bedroom --universe 1 --template RGB
 
 # Create aliases for common workflows
-govee> alias status "monitor dashboard"
-govee> alias events "logs events --type device"
+dmx-bridge> alias status "monitor dashboard"
+dmx-bridge> alias events "logs events --type device"
 ```
 
 ### WebSocket Connection Issues

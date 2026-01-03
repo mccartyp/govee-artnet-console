@@ -5,6 +5,80 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-01-03
+
+**BREAKING CHANGES**: This release includes major breaking changes with the rename from `govee-artnet-console` to `dmx-lan-console` and the introduction of multi-protocol support.
+
+### Added
+- **Multi-Protocol Support**: Full support for multiple smart lighting protocols (Govee, LIFX, etc.)
+  - Protocol filtering in device listings (`--protocol govee`, `--protocol lifx`)
+  - Protocol-aware device management and mapping creation
+  - Protocol breakdown in monitoring dashboard
+  - Color-coded protocol indicators (🔵 Govee, 🟣 LIFX)
+- **Protocol Autocomplete**: Tab completion now includes protocol names for devices and mappings commands
+- **Unmapped Device State**: New device state indicator for devices without DMX mappings
+  - Devices now show as "Online", "Offline", "Stale", or "Unmapped"
+  - Wider Device ID column in displays to accommodate protocol information
+- **Enhanced Monitoring Dashboard**: Protocol breakdown panel showing device counts per protocol
+- **Improved Field Display**: Mapping creation and listing now display field types for better clarity
+
+### Changed
+- **BREAKING**: Project renamed from `govee-artnet-console` to `dmx-lan-console`
+- **BREAKING**: Python package renamed from `govee_artnet_console` to `dmx_lan_console`
+- **BREAKING**: Executable renamed from `govee-artnet-console` to `dmx-lan-console`
+- **BREAKING**: Configuration directory moved from `~/.govee_artnet_console` to `~/.dmx_lan_console`
+- **BREAKING**: Shell prompt changed from `artnet-bridge>` to `dmx-bridge>`
+- **BREAKING**: Environment variable prefix changed from `GOVEE_ARTNET_*` to `ARTNET_LAN_*` (legacy variables still supported)
+- **Default Universe**: Changed from 0 to 1 for E1.31 (sACN) compatibility
+  - Universe 0 remains Art-Net-only
+  - Universes 1+ are mergeable across protocols (Art-Net and E1.31)
+- **Device State Logic**: Updated to use `elif` for device states to prevent multiple state assignments
+- **Channel Listing Output**: Now shows all mapping fields including protocol information
+- **Mapping Event Display**: Improved display of mapping creation events with field type information
+- **Documentation**: Comprehensive updates to reflect multi-protocol architecture and new project name
+
+### Fixed
+- **Channel Listing Output**: Fixed channel listing to properly display all fields
+- **Default Universe**: Fixed default universe value for sACN compatibility
+- **Nested Mapping Data**: Properly handle nested mapping objects in `mapping_created` events
+- **dpkg Removal Warnings**: Eliminated Python bytecode file warnings during Debian package removal
+- **Device State Display**: Device state now correctly shows only one state per device
+
+### Migration Guide
+If upgrading from v1.x:
+
+1. **Configuration Migration**:
+   ```bash
+   # Backup old config
+   cp -r ~/.govee_artnet_console ~/.govee_artnet_console.backup
+
+   # Rename to new location
+   mv ~/.govee_artnet_console ~/.dmx_lan_console
+   ```
+
+2. **Environment Variables**:
+   - Update `GOVEE_ARTNET_API_KEY` to `ARTNET_LAN_API_KEY` (old variable still works)
+   - Update `GOVEE_ARTNET_SERVER_URL` to `ARTNET_LAN_SERVER_URL`
+
+3. **Package Name**:
+   - Uninstall: `pip uninstall govee-artnet-console`
+   - Install: `pip install dmx-lan-console` or use the new `.deb` package
+
+4. **Executable Name**:
+   - Old: `govee-artnet-console`
+   - New: `dmx-lan-console`
+
+5. **Default Universe**:
+   - Mappings now default to universe 1 instead of 0
+   - Update any automation/scripts that relied on universe 0 default
+
+### Technical Improvements
+- Multi-protocol device discovery and management architecture
+- Protocol-aware mapping creation and validation
+- Enhanced event streaming with protocol information
+- Improved monitoring dashboard with protocol breakdown
+- Better device state management with unmapped state detection
+
 ## [1.0.2] - 2026-01-01
 
 ### Added

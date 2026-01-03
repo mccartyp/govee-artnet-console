@@ -1,4 +1,4 @@
-"""Core shell module for govee-artnet CLI.
+"""Core shell module for dmx-lan CLI.
 
 This is the main shell class that coordinates all command handlers
 and manages the interactive terminal interface.
@@ -84,10 +84,10 @@ DEFAULT_API_TIMEOUT = 10.0
 WS_RECV_TIMEOUT = 1.0
 DEFAULT_LOG_LINES = 50
 
-class GoveeShell:
-    """Interactive shell for the Govee ArtNet bridge using prompt_toolkit."""
+class ArtNetShell:
+    """Interactive shell for the DMX LAN Console using prompt_toolkit."""
 
-    prompt = "govee> "
+    prompt = "dmx-bridge> "
 
     def __init__(self, config: ClientConfig):
         """
@@ -102,7 +102,7 @@ class GoveeShell:
         self.console = Console(legacy_windows=False, soft_wrap=False, force_terminal=True)
 
         # Initialize response cache for performance
-        cache_ttl = float(os.environ.get("GOVEE_ARTNET_CACHE_TTL", str(DEFAULT_CACHE_TTL)))
+        cache_ttl = float(os.environ.get("DMX_LAN_CACHE_TTL", str(DEFAULT_CACHE_TTL)))
         self.cache = ResponseCache(default_ttl=cache_ttl)
 
         # Track previous data for delta detection in watch mode
@@ -115,7 +115,7 @@ class GoveeShell:
         self.help_formatter = HelpFormatter(self)
 
         # Set up command history and data directory
-        self.data_dir = Path.home() / ".govee_artnet_console"
+        self.data_dir = Path.home() / ".dmx_lan_console"
         self.data_dir.mkdir(exist_ok=True)
         history_file = self.data_dir / "shell_history"
         self.bookmarks_file = self.data_dir / "bookmarks.json"
@@ -1033,11 +1033,11 @@ class GoveeShell:
     def do_channels(self, arg: str) -> None:
         """
         Channel commands: list channels for one or more universes.
-        Usage: channels list [universe...]    # Default universe is 0
+        Usage: channels list [universe...]    # Default universe is 1
         Examples:
-            channels list              # Show channels for universe 0
-            channels list 1            # Show channels for universe 1
-            channels list 0 1 2        # Show channels for universes 0, 1, and 2
+            channels list              # Show channels for universe 1
+            channels list 0            # Show channels for universe 0 (Art-Net only)
+            channels list 1 2 3        # Show channels for universes 1, 2, and 3
         """
         return self.monitoring_handler.do_channels(arg)
 
@@ -1185,7 +1185,7 @@ class GoveeShell:
         temp_console = Console(file=buffer, force_terminal=True, width=self.console.width, legacy_windows=False)
 
         temp_console.print()
-        temp_console.print(f"[bold cyan]Govee ArtNet Bridge Shell[/]")
+        temp_console.print(f"[bold cyan]DMX LAN Console[/]")
         temp_console.print(f"[dim]Version:[/] {SHELL_VERSION}")
         temp_console.print()
         temp_console.print("[dim]Features:[/]")
@@ -1351,7 +1351,7 @@ class GoveeShell:
         # Show intro in output area
         if intro is None:
             self._append_output("[bold cyan]═" * 40 + "[/]\n")
-            self._append_output("[bold cyan]Govee ArtNet Bridge - Interactive Shell[/]\n")
+            self._append_output("[bold cyan]DMX LAN Console - Interactive Shell[/]\n")
             self._append_output("[bold cyan]═" * 40 + "[/]\n")
             self._append_output(f"[dim]Version {SHELL_VERSION}[/]\n\n")
             self._append_output("[cyan]Quick Tips:[/]\n")
@@ -1369,7 +1369,8 @@ class GoveeShell:
             self._append_output("  1. [bold]devices list[/] - View all discovered Govee devices\n")
             self._append_output("     [dim]Shows device ID, IP, state, and capabilities[/]\n")
             self._append_output("  2. [bold]channels list[/] [universe] - Show ArtNet channel assignments\n")
-            self._append_output("     [dim]Default universe is 0. Example: channels list 1[/]\n")
+            self._append_output("     [dim]Default universe is 1. Example: channels list 2[/]\n")
+            self._append_output("     [dim]Note: Universe 0 is Art-Net-only; universes 1+ support E1.31/sACN[/]\n")
             self._append_output("  3. [bold]mappings list[/] - View current channel-to-device mappings\n")
             self._append_output("     [dim]Shows which channels control which device fields[/]\n")
             self._append_output("  4. [bold]mappings create[/] - Create new channel mappings\n")
@@ -1398,7 +1399,7 @@ def run_shell(config: ClientConfig) -> None:
         config: Client configuration
     """
     try:
-        shell = GoveeShell(config)
+        shell = ArtNetShell(config)
         asyncio.run(shell.cmdloop())
     except KeyboardInterrupt:
         print("\nInterrupted. Goodbye!", file=sys.stderr)

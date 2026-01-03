@@ -22,14 +22,16 @@ class MappingCommandHandler(CommandHandler):
         Mapping commands: list, get, create, delete, channel-map.
         Usage: mappings list
                mappings get <id>
-               mappings create --device-id <id> [--universe <num>] --template <name> --start-channel <num>
-               mappings create --device-id <id> [--universe <num>] --channel <num> --field <field>
-               mappings create --device-id <id> [--universe <num>] --channel <num> --length <num>
+               mappings create --device-id <id> [--protocol <proto>] [--universe <num>] --template <name> --start-channel <num>
+               mappings create --device-id <id> [--protocol <proto>] [--universe <num>] --channel <num> --field <field>
+               mappings create --device-id <id> [--protocol <proto>] [--universe <num>] --channel <num> --length <num>
                mappings delete <id>
                mappings channel-map
         Templates (multi-channel): RGB, RGBCT, DimRGBCT, DimCT
         Fields (single-channel): power [all], brightness [caps], r/red [caps], g/green [caps], b/blue [caps], ct/color_temp [caps]
-        Note: --universe defaults to 0; [caps] = requires device capability check
+        Note: --universe defaults to 1; --protocol is optional (auto-detected from device); [caps] = requires device capability check
+        Universe Notes: sACN (E1.31) universes are 1–63999. Art-Net supports universe 0.
+                        Universe 0 is Art-Net-only in this application; universes 1+ are mergeable across protocols.
         Use 'help mappings create', 'mappings create --help', or 'mappings create ?' for detailed creation help
         """
         if not self.client:
@@ -91,9 +93,13 @@ class MappingCommandHandler(CommandHandler):
             devices = _handle_response(devices_response)
             device_lookup = {d["id"]: d for d in devices} if devices else {}
 
+            # Import protocol formatter
+            from ...config import format_protocol
+
             # Create table with unicode borders
             table = Table(title=Text("ArtNet Mappings", justify="center"), show_header=True, header_style="bold cyan", box=box.ROUNDED)
             table.add_column("Mapping ID", style="cyan", width=12)
+            table.add_column("Protocol", style="white", width=13)
             table.add_column("Device ID", style="yellow", width=23)
             table.add_column("Name", style="blue", width=15)
             table.add_column("Universe", style="green", width=8, justify="right")
@@ -127,14 +133,19 @@ class MappingCommandHandler(CommandHandler):
                 else:
                     fields_str = "N/A"
 
-                # Look up device name
+                # Look up device name and protocol
                 device_id = mapping.get("device_id", "N/A")
                 device = device_lookup.get(device_id, {})
                 device_name = device.get("name", "")
                 name_display = device_name if device_name else "[dim]-[/]"
 
+                # Get protocol from mapping (if present) or from device
+                mapping_protocol = mapping.get("protocol") or device.get("protocol", "govee")
+                protocol_display = format_protocol(mapping_protocol)
+
                 table.add_row(
                     str(mapping.get("id", "N/A")),
+                    protocol_display,
                     str(device_id)[:23],
                     name_display,
                     str(mapping.get("universe", "N/A")),
@@ -158,7 +169,8 @@ class MappingCommandHandler(CommandHandler):
         """
         # Parse arguments
         device_id = None
-        universe = 0  # Default to universe 0
+        protocol = None  # Optional - will be auto-detected from device if not specified
+        universe = 1  # Default to universe 1
         start_channel = None
         channel = None
         length = None
@@ -173,16 +185,16 @@ class MappingCommandHandler(CommandHandler):
             if arg == "--help":
                 self.shell._append_output("[cyan]Mappings Create Help[/]\n")
                 self.shell._append_output("\n[bold]Template-based (recommended for multi-channel mappings):[/]\n")
-                self.shell._append_output("  mappings create --device-id <id> [--universe <num>] --template <name> --start-channel <num>\n")
+                self.shell._append_output("  mappings create --device-id <id> [--protocol <proto>] [--universe <num>] --template <name> --start-channel <num>\n")
                 self.shell._append_output("\n[bold]Available templates:[/]\n")
                 self.shell._append_output("  • RGB             - 3 channels: Red, Green, Blue\n")
                 self.shell._append_output("  • RGBCT           - 4 channels: Red, Green, Blue, Color Temp\n")
                 self.shell._append_output("  • DimRGBCT        - 5 channels: Dimmer, Red, Green, Blue, Color Temp\n")
                 self.shell._append_output("  • DimCT           - 2 channels: Dimmer, Color Temp\n")
                 self.shell._append_output("\n[bold]Single channel mappings (recommended for individual control):[/]\n")
-                self.shell._append_output("  mappings create --device-id <id> [--universe <num>] --channel <num> --field <field>\n")
+                self.shell._append_output("  mappings create --device-id <id> [--protocol <proto>] [--universe <num>] --channel <num> --field <field>\n")
                 self.shell._append_output("\n[bold]Multi-channel range mappings:[/]\n")
-                self.shell._append_output("  mappings create --device-id <id> [--universe <num>] --channel <num> --length <num>\n")
+                self.shell._append_output("  mappings create --device-id <id> [--protocol <proto>] [--universe <num>] --channel <num> --length <num>\n")
                 self.shell._append_output("\n[bold]Available fields (for single channel mappings):[/]\n")
                 self.shell._append_output("  • power              - Power on/off (DMX >= 128 = on, < 128 = off) [all devices]\n")
                 self.shell._append_output("  • dimmer             - Dimmer control (0-255) [requires brightness capability]\n")
@@ -191,18 +203,26 @@ class MappingCommandHandler(CommandHandler):
                 self.shell._append_output("  • b (or blue)        - Blue channel only [requires color capability]\n")
                 self.shell._append_output("  • ct (or color_temp) - Color temperature in Kelvin [requires color_temp capability]\n")
                 self.shell._append_output("\n[bold]Notes:[/]\n")
-                self.shell._append_output("  • Universe defaults to 0 if omitted\n")
+                self.shell._append_output("  • Universe defaults to 1 if omitted\n")
+                self.shell._append_output("\n[bold]Universe Information:[/]\n")
+                self.shell._append_output("  • sACN (E1.31) universes: 1–63999\n")
+                self.shell._append_output("  • Art-Net supports universe 0\n")
+                self.shell._append_output("  • Universe 0 is Art-Net-only; universes 1+ are mergeable across protocols\n")
+                self.shell._append_output("  • Protocol is optional - auto-detected from device if not specified\n")
+                self.shell._append_output("  • Supported protocols: govee, lifx (use 'devices list' to see device protocols)\n")
                 self.shell._append_output("  • Templates are for multi-channel mappings only\n")
                 self.shell._append_output("  • Use single channel mappings for individual field control\n")
                 self.shell._append_output("  • Device capabilities are validated - mappings will fail if unsupported\n")
-                self.shell._append_output("  • Use 'devices list' to check device capabilities\n")
                 self.shell._append_output("\n[bold]Examples:[/]\n")
                 self.shell._append_output("  # Template-based multi-channel mapping\n")
                 self.shell._append_output("  mappings create --device-id AA:BB:CC:DD:EE:FF --template RGB --start-channel 1\n")
                 self.shell._append_output("  mappings create --device-id @kitchen --universe 1 --template DimRGBCT --start-channel 10\n")
+                self.shell._append_output("\n  # With explicit protocol (optional)\n")
+                self.shell._append_output("  mappings create --device-id AA:BB:CC:DD:EE:FF --protocol govee --template RGB --start-channel 1\n")
+                self.shell._append_output("  mappings create --device-id @lifx-bulb --protocol lifx --template RGBCT --start-channel 10\n")
                 self.shell._append_output("\n  # Single channel mappings\n")
                 self.shell._append_output("  mappings create --device-id AA:BB:CC:DD:EE:FF --channel 1 --field power\n")
-                self.shell._append_output("  mappings create --device-id AA:BB:CC:DD:EE:FF --channel 5 --field dimmer  # Dimmer control\n")
+                self.shell._append_output("  mappings create --device-id AA:BB:CC:DD:EE:FF --channel 5 --field dimmer\n")
                 self.shell._append_output("  mappings create --device-id @kitchen --channel 20 --field ct\n")
                 self.shell._append_output("  mappings create --device-id @kitchen --channel 21 --field red\n")
                 self.shell._append_output("\n  # Manual multi-channel range mapping\n")
@@ -210,6 +230,9 @@ class MappingCommandHandler(CommandHandler):
                 return
             elif arg == "--device-id" and i + 1 < len(args):
                 device_id = self.shell._resolve_bookmark(args[i + 1])
+                i += 2
+            elif arg == "--protocol" and i + 1 < len(args):
+                protocol = args[i + 1].lower()
                 i += 2
             elif arg == "--universe" and i + 1 < len(args):
                 try:
@@ -267,6 +290,10 @@ class MappingCommandHandler(CommandHandler):
             "universe": universe,
             "allow_overlap": allow_overlap,
         }
+
+        # Add protocol if specified (otherwise server will auto-detect from device)
+        if protocol:
+            payload["protocol"] = protocol
 
         if template:
             # Template-based mapping

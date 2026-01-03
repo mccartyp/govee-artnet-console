@@ -1,4 +1,4 @@
-"""UI components for the Govee ArtNet shell.
+"""UI components for the DMX LAN Console shell.
 
 This module contains UI-related classes for the interactive shell:
 - TrailingSpaceCompleter: Custom autocomplete with trailing spaces

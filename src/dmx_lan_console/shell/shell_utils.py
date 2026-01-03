@@ -1,4 +1,4 @@
-"""Utility functions for the Govee ArtNet shell.
+"""Utility functions for the DMX LAN Console shell.
 
 This module contains standalone utility functions for common operations
 like JSON file handling.

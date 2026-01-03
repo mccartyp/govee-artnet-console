@@ -1,4 +1,4 @@
-"""Toolbar management for the Govee ArtNet shell.
+"""Toolbar management for the DMX LAN Console shell.
 
 This module handles the bottom toolbar display, including status updates
 and formatting of the two-line toolbar with device counts and health info.
@@ -13,18 +13,18 @@ from typing import TYPE_CHECKING
 from .controllers import ConnectionState
 
 if TYPE_CHECKING:
-    from .core import GoveeShell
+    from .core import ArtNetShell
 
 
 class ToolbarManager:
     """Manages the bottom toolbar display and status updates."""
 
-    def __init__(self, shell: GoveeShell):
+    def __init__(self, shell: ArtNetShell):
         """
         Initialize the toolbar manager.
 
         Args:
-            shell: Reference to the GoveeShell instance
+            shell: Reference to the ArtNetShell instance
         """
         self.shell = shell
 

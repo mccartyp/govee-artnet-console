@@ -1,13 +1,13 @@
 # Installation Guide
 
-This guide covers various methods for installing `govee-artnet-console`.
+This guide covers various methods for installing `dmx-lan-console`.
 
 ## Prerequisites
 
 ### System Requirements
 - **Operating System**: Linux (Debian 13.2 or compatible), macOS, or Windows with WSL
 - **Python**: Version 3.10 or higher
-- **Bridge Server**: Govee ArtNet LAN Bridge must be running and accessible
+- **Bridge Server**: DMX LAN Bridge must be running and accessible
 
 ### Check Python Version
 
@@ -22,8 +22,8 @@ python3 --version
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/mccartyp/govee-artnet-console.git
-   cd govee-artnet-console
+   git clone https://github.com/mccartyp/dmx-lan-console.git
+   cd dmx-lan-console
    ```
 
 2. **Install with pip**:
@@ -38,7 +38,7 @@ python3 --version
 
 3. **Verify installation**:
    ```bash
-   govee-artnet-console --help
+   dmx-lan-console --help
    ```
 
 ### Method 2: Install from Debian Package (System-Wide)
@@ -48,14 +48,14 @@ For Debian 13.2 and compatible systems:
 1. **Download the .deb package**:
    ```bash
    # Build from source
-   git clone https://github.com/mccartyp/govee-artnet-console.git
-   cd govee-artnet-console
+   git clone https://github.com/mccartyp/dmx-lan-console.git
+   cd dmx-lan-console
    make deb
    ```
 
 2. **Install the package**:
    ```bash
-   sudo dpkg -i govee-artnet-console_0.1.0_all.deb
+   sudo dpkg -i dmx-lan-console_2.0.0_all.deb
    ```
 
 3. **Install dependencies** (if needed):
@@ -65,7 +65,7 @@ For Debian 13.2 and compatible systems:
 
 4. **Verify installation**:
    ```bash
-   govee-artnet-console --version
+   dmx-lan-console --version
    ```
 
 ### Method 3: Install to /usr/local (No Package Manager)
@@ -74,8 +74,8 @@ For manual installation without creating a Debian package:
 
 1. **Clone and build**:
    ```bash
-   git clone https://github.com/mccartyp/govee-artnet-console.git
-   cd govee-artnet-console
+   git clone https://github.com/mccartyp/dmx-lan-console.git
+   cd dmx-lan-console
    ```
 
 2. **Install to /usr/local**:
@@ -84,12 +84,12 @@ For manual installation without creating a Debian package:
    ```
 
    This installs:
-   - Binary: `/usr/local/bin/govee-artnet-console`
+   - Binary: `/usr/local/bin/dmx-lan-console`
    - Python package: `/usr/local/lib/python3.x/site-packages/`
 
 3. **Verify installation**:
    ```bash
-   govee-artnet-console --help
+   dmx-lan-console --help
    ```
 
 ### Method 4: User-Local Installation (No Root Access)
@@ -130,12 +130,12 @@ pip3 install httpx websockets pyyaml rich prompt-toolkit
 ### 1. Create Configuration Directory
 
 ```bash
-mkdir -p ~/.govee_artnet_console
+mkdir -p ~/.dmx_lan_console
 ```
 
 ### 2. Create Configuration File
 
-Create `~/.govee_artnet_console/config.yaml`:
+Create `~/.dmx_lan_console/config.yaml`:
 
 ```yaml
 servers:
@@ -161,13 +161,13 @@ Add to your `~/.bashrc` or `~/.zshrc`:
 
 ```bash
 # Bridge server URL (if not using localhost)
-export GOVEE_ARTNET_SERVER_URL=http://192.168.1.100:8000
+export ARTNET_LAN_SERVER_URL=http://192.168.1.100:8000
 
-# API key for authentication
-export GOVEE_ARTNET_API_KEY=your-api-key-here
+# API key for authentication (legacy GOVEE_ARTNET_API_KEY also supported)
+export ARTNET_LAN_API_KEY=your-api-key-here
 
 # Default output format
-export GOVEE_ARTNET_OUTPUT=table
+export ARTNET_LAN_OUTPUT=table
 ```
 
 ## Verifying Installation
@@ -176,38 +176,38 @@ export GOVEE_ARTNET_OUTPUT=table
 
 ```bash
 # Show version
-govee-artnet-console --version
+dmx-lan-console --version
 
 # Show help
-govee-artnet-console --help
+dmx-lan-console --help
 
 # Test connection to bridge (requires bridge running)
-govee-artnet-console health
+dmx-lan-console health
 ```
 
 ### Test Interactive Shell
 
 ```bash
 # Start shell
-govee-artnet-console
+dmx-lan-console
 
 # In shell, try:
-govee> help
-govee> connect
-govee> devices list
-govee> exit
+dmx-bridge> help
+dmx-bridge> connect
+dmx-bridge> devices list
+dmx-bridge> exit
 ```
 
 ## Troubleshooting
 
 ### Command Not Found
 
-If `govee-artnet-console` is not found:
+If `dmx-lan-console` is not found:
 
 1. **Check installation location**:
    ```bash
-   which govee-artnet-console
-   pip3 show govee-artnet-console
+   which dmx-lan-console
+   pip3 show dmx-lan-console
    ```
 
 2. **Add to PATH** (if installed with `--user`):
@@ -217,7 +217,7 @@ If `govee-artnet-console` is not found:
 
 3. **Run directly**:
    ```bash
-   python3 -m govee_artnet_console
+   python3 -m dmx_lan_console
    ```
 
 ### Import Errors
@@ -258,7 +258,7 @@ If you can't connect to the bridge:
 
 3. **Test with explicit URL**:
    ```bash
-   govee-artnet-console --server-url http://localhost:8000 health
+   dmx-lan-console --server-url http://localhost:8000 health
    ```
 
 ### Permission Errors
@@ -282,26 +282,26 @@ If you see permission errors during installation:
 ### From pip
 
 ```bash
-pip3 uninstall govee-artnet-console
+pip3 uninstall dmx-lan-console
 ```
 
 ### From Debian package
 
 ```bash
-sudo apt-get remove govee-artnet-console
+sudo apt-get remove dmx-lan-console
 ```
 
 ### Manual uninstall
 
 ```bash
-sudo rm /usr/local/bin/govee-artnet-console
-sudo rm -rf /usr/local/lib/python3.*/site-packages/govee_artnet_console*
+sudo rm /usr/local/bin/dmx-lan-console
+sudo rm -rf /usr/local/lib/python3.*/site-packages/dmx_lan_console*
 ```
 
 ### Remove configuration
 
 ```bash
-rm -rf ~/.govee_artnet_console
+rm -rf ~/.dmx_lan_console
 ```
 
 ## Upgrading
@@ -309,7 +309,7 @@ rm -rf ~/.govee_artnet_console
 ### From source
 
 ```bash
-cd govee-artnet-console
+cd dmx-lan-console
 git pull
 pip3 install --upgrade .
 ```
@@ -321,7 +321,7 @@ pip3 install --upgrade .
 make deb
 
 # Install (will upgrade)
-sudo dpkg -i govee-artnet-console_*.deb
+sudo dpkg -i dmx-lan-console_*.deb
 ```
 
 ## System-Specific Notes

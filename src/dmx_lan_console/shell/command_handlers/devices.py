@@ -360,7 +360,7 @@ class DeviceCommandHandler(CommandHandler):
                 protocol_display = format_protocol(protocol)
                 model = device.get("model_number", "Unknown")
                 ip_address = device.get("ip", "N/A")
-                name = device.get("name", "")
+                name = device.get("name")
                 name_display = name if name else "[dim]-[/]"
 
                 # Determine state(s)
@@ -465,7 +465,6 @@ class DeviceCommandHandler(CommandHandler):
                     ("Name", "name"),
                     ("Model", "model_number"),
                     ("Type", "device_type"),
-                    ("Description", "description"),
                     ("Enabled", "enabled"),
                     ("Manual", "manual"),
                     ("Discovered", "discovered"),

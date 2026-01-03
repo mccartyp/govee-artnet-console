@@ -372,16 +372,16 @@ class DeviceCommandHandler(CommandHandler):
 
                 if not is_offline and is_configured and is_enabled:
                     states.append(("[green]", "Active"))
-                if not is_enabled:
+                elif not is_enabled:
                     states.append(("[yellow]", "Disabled"))
-                if is_offline:
+                elif is_offline:
                     states.append(("[red]", "Offline"))
+                elif mapping_count == 0:
+                    states.append(("[yellow]", "Unmapped"))
 
                 # Format state column
                 if states:
                     state_str = " / ".join([f"{color}{state}[/]" for color, state in states])
-                elif mapping_count == 0:
-                    state_str = "[yellow]Unmapped[/]"
                 else:
                     state_str = "[dim]Unknown[/]"
 

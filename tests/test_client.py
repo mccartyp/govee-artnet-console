@@ -1,7 +1,7 @@
 """Tests for the BridgeClient."""
 
 import pytest
-from govee_artnet_console.client import BridgeClient
+from dmx_lan_console.client import BridgeClient
 
 
 def test_client_initialization():

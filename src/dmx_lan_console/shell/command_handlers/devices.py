@@ -345,7 +345,7 @@ class DeviceCommandHandler(CommandHandler):
 
             # Create simplified table with protocol column
             table = Table(title=Text("Devices", justify="center"), show_header=True, header_style="bold cyan", box=box.ROUNDED)
-            table.add_column("Device ID", style="cyan", width=21, no_wrap=True)
+            table.add_column("Device ID", style="cyan", width=23, no_wrap=True)
             table.add_column("Protocol", style="white", width=12)
             table.add_column("IP", style="green", width=15)
             table.add_column("Name", style="blue", width=18)
@@ -355,7 +355,7 @@ class DeviceCommandHandler(CommandHandler):
 
             # Add device rows
             for device in devices:
-                device_id = device.get("id", "N/A")[:21]  # Truncate long IDs
+                device_id = device.get("id", "N/A")[:23]  # Truncate long IDs
                 protocol = device.get("protocol", "govee")
                 protocol_display = format_protocol(protocol)
                 model = device.get("model_number", "Unknown")
@@ -368,13 +368,16 @@ class DeviceCommandHandler(CommandHandler):
                 is_offline = device.get("offline", False)
                 is_enabled = device.get("enabled", False)
                 is_configured = device.get("configured", False)
+                mapping_count = device.get("mapping_count", 0) or 0
 
                 if not is_offline and is_configured and is_enabled:
                     states.append(("[green]", "Active"))
-                if not is_enabled:
+                elif not is_enabled:
                     states.append(("[yellow]", "Disabled"))
-                if is_offline:
+                elif is_offline:
                     states.append(("[red]", "Offline"))
+                elif mapping_count == 0:
+                    states.append(("[yellow]", "Unmapped"))
 
                 # Format state column
                 if states:

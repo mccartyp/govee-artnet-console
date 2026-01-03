@@ -599,15 +599,12 @@ class EventsController:
             return f"🔵 [cyan]*** Device Updated:[/] {device_id} - {fields_str}\n"
 
         elif event_type == "mapping_created":
-            # Check if mapping details are nested in a 'mapping' object
-            mapping_obj = data.get("mapping", data)
-
-            mapping_id = mapping_obj.get("id", data.get("mapping_id", "?"))
-            universe = mapping_obj.get("universe", "?")
-            channel = mapping_obj.get("channel", "?")
-            device_id = mapping_obj.get("device_id", "")
-            field = mapping_obj.get("field")
-            fields = mapping_obj.get("fields", [])
+            mapping_id = data.get("mapping_id", "?")
+            universe = data.get("universe", "?")
+            channel = data.get("channel", "?")
+            device_id = data.get("device_id", "")
+            field = data.get("field")
+            fields = data.get("fields", [])
 
             # Try to get device info from cache if device_id provided
             device_part = ""
@@ -635,25 +632,26 @@ class EventsController:
                 else:
                     field_part = f" [dim]({pretty_field})[/]"
             elif fields:
-                # Multi-field mapping - show the first field
-                first_field = fields[0] if isinstance(fields, list) and fields else None
-                if first_field:
-                    pretty_field = FIELD_DESCRIPTIONS.get(first_field, first_field.capitalize())
+                # Multi-field mapping - show ALL fields with color coding
+                colored_fields = []
+                for f in fields:
+                    pretty_field = FIELD_DESCRIPTIONS.get(f, f.capitalize())
                     # Apply color coding
                     if "Red" in pretty_field:
-                        field_part = f" [dim]([/][red]{pretty_field}[/][dim])[/]"
+                        colored_fields.append(f"[red]{pretty_field}[/]")
                     elif "Green" in pretty_field:
-                        field_part = f" [dim]([/][green]{pretty_field}[/][dim])[/]"
+                        colored_fields.append(f"[green]{pretty_field}[/]")
                     elif "Blue" in pretty_field:
-                        field_part = f" [dim]([/][blue]{pretty_field}[/][dim])[/]"
+                        colored_fields.append(f"[blue]{pretty_field}[/]")
                     elif "White" in pretty_field or "Dimmer" in pretty_field:
-                        field_part = f" [dim]([/][white]{pretty_field}[/][dim])[/]"
+                        colored_fields.append(f"[white]{pretty_field}[/]")
                     elif "Temp" in pretty_field:
-                        field_part = f" [dim]([/][yellow]{pretty_field}[/][dim])[/]"
+                        colored_fields.append(f"[yellow]{pretty_field}[/]")
                     else:
-                        field_part = f" [dim]({pretty_field})[/]"
+                        colored_fields.append(pretty_field)
+                field_part = f" [dim]([/]{', '.join(colored_fields)}[dim])[/]"
 
-            # Format: ⚙️  *** Mapping Created: Universe 0, Channel 1 → Device AA:BB:CC (192.168.1.100) (Red)
+            # Format: ⚙️  *** Mapping Created: Universe 0, Channel 1 → Device AA:BB:CC (192.168.1.100) (Red, Green, Blue)
             return f"⚙️  [blue]*** Mapping Created:[/] Universe {universe}, Channel {channel}{device_part}{field_part}\n"
 
         elif event_type == "mapping_deleted":
@@ -778,14 +776,11 @@ class EventsController:
             return formatted
 
         elif event_type == "mapping_created":
-            # Check if mapping details are nested in a 'mapping' object
-            mapping_obj = data.get("mapping", data)
-
-            mapping_id = mapping_obj.get("id", data.get("mapping_id", "?"))
-            universe = mapping_obj.get("universe", "?")
-            channel = mapping_obj.get("channel", "?")
-            field = mapping_obj.get("field")
-            fields = mapping_obj.get("fields", [])
+            mapping_id = data.get("mapping_id", "?")
+            universe = data.get("universe", "?")
+            channel = data.get("channel", "?")
+            field = data.get("field")
+            fields = data.get("fields", [])
 
             formatted = f"{dim}[{time_str}]{reset} ⚙️  {blue}Mapping Created{reset}\n"
             formatted += f"{dim}  ╰─► {reset}ID: {mapping_id}\n"

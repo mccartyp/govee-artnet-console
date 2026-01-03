@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING, Optional
 import websockets
 from prompt_toolkit.document import Document
 
+from .ui_components import FIELD_DESCRIPTIONS
+
 if TYPE_CHECKING:
     from prompt_toolkit import Application
     from prompt_toolkit.buffer import Buffer
@@ -601,6 +603,8 @@ class EventsController:
             universe = data.get("universe", "?")
             channel = data.get("channel", "?")
             device_id = data.get("device_id", "")
+            field = data.get("field")
+            fields = data.get("fields", [])
 
             # Try to get device info from cache if device_id provided
             device_part = ""
@@ -609,8 +613,45 @@ class EventsController:
                 ip_part = f" ({ip})" if ip else ""
                 device_part = f" → Device {device_id}{ip_part}"
 
-            # Format: ⚙️  *** Mapping Created: Universe 0, Channel 1 → Device AA:BB:CC (192.168.1.100)
-            return f"⚙️  [blue]*** Mapping Created:[/] Universe {universe}, Channel {channel}{device_part}\n"
+            # Format field type at the end
+            field_part = ""
+            if field:
+                # Single field mapping
+                pretty_field = FIELD_DESCRIPTIONS.get(field, field.capitalize())
+                # Apply color coding
+                if "Red" in pretty_field:
+                    field_part = f" [dim]([/][red]{pretty_field}[/][dim])[/]"
+                elif "Green" in pretty_field:
+                    field_part = f" [dim]([/][green]{pretty_field}[/][dim])[/]"
+                elif "Blue" in pretty_field:
+                    field_part = f" [dim]([/][blue]{pretty_field}[/][dim])[/]"
+                elif "White" in pretty_field or "Dimmer" in pretty_field:
+                    field_part = f" [dim]([/][white]{pretty_field}[/][dim])[/]"
+                elif "Temp" in pretty_field:
+                    field_part = f" [dim]([/][yellow]{pretty_field}[/][dim])[/]"
+                else:
+                    field_part = f" [dim]({pretty_field})[/]"
+            elif fields:
+                # Multi-field mapping - show the first field
+                first_field = fields[0] if isinstance(fields, list) and fields else None
+                if first_field:
+                    pretty_field = FIELD_DESCRIPTIONS.get(first_field, first_field.capitalize())
+                    # Apply color coding
+                    if "Red" in pretty_field:
+                        field_part = f" [dim]([/][red]{pretty_field}[/][dim])[/]"
+                    elif "Green" in pretty_field:
+                        field_part = f" [dim]([/][green]{pretty_field}[/][dim])[/]"
+                    elif "Blue" in pretty_field:
+                        field_part = f" [dim]([/][blue]{pretty_field}[/][dim])[/]"
+                    elif "White" in pretty_field or "Dimmer" in pretty_field:
+                        field_part = f" [dim]([/][white]{pretty_field}[/][dim])[/]"
+                    elif "Temp" in pretty_field:
+                        field_part = f" [dim]([/][yellow]{pretty_field}[/][dim])[/]"
+                    else:
+                        field_part = f" [dim]({pretty_field})[/]"
+
+            # Format: ⚙️  *** Mapping Created: Universe 0, Channel 1 → Device AA:BB:CC (192.168.1.100) (Red)
+            return f"⚙️  [blue]*** Mapping Created:[/] Universe {universe}, Channel {channel}{device_part}{field_part}\n"
 
         elif event_type == "mapping_deleted":
             mapping_id = data.get("mapping_id", "?")
@@ -737,10 +778,21 @@ class EventsController:
             mapping_id = data.get("mapping_id", "?")
             universe = data.get("universe", "?")
             channel = data.get("channel", "?")
+            field = data.get("field")
+            fields = data.get("fields", [])
 
             formatted = f"{dim}[{time_str}]{reset} ⚙️  {blue}Mapping Created{reset}\n"
             formatted += f"{dim}  ╰─► {reset}ID: {mapping_id}\n"
             formatted += f"{dim}     {reset}Universe: {universe}, Channel: {channel}\n"
+
+            # Add field information if available
+            if field:
+                pretty_field = FIELD_DESCRIPTIONS.get(field, field.capitalize())
+                formatted += f"{dim}     {reset}Field: {pretty_field}\n"
+            elif fields:
+                pretty_fields = [FIELD_DESCRIPTIONS.get(f, f.capitalize()) for f in fields]
+                formatted += f"{dim}     {reset}Fields: {', '.join(pretty_fields)}\n"
+
             return formatted
 
         elif event_type == "mapping_updated":

@@ -124,7 +124,7 @@ dmx-bridge> devices list                    # List all discovered devices
 dmx-bridge> devices list --protocol govee   # List only Govee devices
 dmx-bridge> devices list --protocol lifx    # List only LIFX devices
 dmx-bridge> mappings create --device-id AA:BB:CC:DD:EE:FF:11:22 \
-                             --universe 0 --template RGB --start-channel 1
+                             --universe 1 --template RGB --start-channel 1
 dmx-bridge> logs events                     # View real-time event stream
 dmx-bridge> logs tail                       # Stream application logs in real-time
 dmx-bridge> watch dashboard                 # Live updating dashboard (updates every 5s)
@@ -147,6 +147,8 @@ watch devices                          # Live device monitor
 logs events                            # Real-time event notifications (device, mapping, health)
 logs events --type device              # Filter by event type (device|mapping|health)
 ```
+
+**Universe Default:** Mappings and views default to universe 1. sACN (E1.31) universes are 1–63999. Art-Net supports universe 0. Universe 0 is Art-Net-only in this application; universes 1+ are mergeable across protocols.
 
 **Note:** Event notifications appear automatically in the background while you work. Look for colored bubble indicators (🔵 🟢 🔴 ⚙️) in the console output!
 

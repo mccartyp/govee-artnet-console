@@ -29,7 +29,9 @@ class MappingCommandHandler(CommandHandler):
                mappings channel-map
         Templates (multi-channel): RGB, RGBCT, DimRGBCT, DimCT
         Fields (single-channel): power [all], brightness [caps], r/red [caps], g/green [caps], b/blue [caps], ct/color_temp [caps]
-        Note: --universe defaults to 0; --protocol is optional (auto-detected from device); [caps] = requires device capability check
+        Note: --universe defaults to 1; --protocol is optional (auto-detected from device); [caps] = requires device capability check
+        Universe Notes: sACN (E1.31) universes are 1–63999. Art-Net supports universe 0.
+                        Universe 0 is Art-Net-only in this application; universes 1+ are mergeable across protocols.
         Use 'help mappings create', 'mappings create --help', or 'mappings create ?' for detailed creation help
         """
         if not self.client:
@@ -168,7 +170,7 @@ class MappingCommandHandler(CommandHandler):
         # Parse arguments
         device_id = None
         protocol = None  # Optional - will be auto-detected from device if not specified
-        universe = 0  # Default to universe 0
+        universe = 1  # Default to universe 1
         start_channel = None
         channel = None
         length = None
@@ -201,7 +203,11 @@ class MappingCommandHandler(CommandHandler):
                 self.shell._append_output("  • b (or blue)        - Blue channel only [requires color capability]\n")
                 self.shell._append_output("  • ct (or color_temp) - Color temperature in Kelvin [requires color_temp capability]\n")
                 self.shell._append_output("\n[bold]Notes:[/]\n")
-                self.shell._append_output("  • Universe defaults to 0 if omitted\n")
+                self.shell._append_output("  • Universe defaults to 1 if omitted\n")
+                self.shell._append_output("\n[bold]Universe Information:[/]\n")
+                self.shell._append_output("  • sACN (E1.31) universes: 1–63999\n")
+                self.shell._append_output("  • Art-Net supports universe 0\n")
+                self.shell._append_output("  • Universe 0 is Art-Net-only; universes 1+ are mergeable across protocols\n")
                 self.shell._append_output("  • Protocol is optional - auto-detected from device if not specified\n")
                 self.shell._append_output("  • Supported protocols: govee, lifx (use 'devices list' to see device protocols)\n")
                 self.shell._append_output("  • Templates are for multi-channel mappings only\n")

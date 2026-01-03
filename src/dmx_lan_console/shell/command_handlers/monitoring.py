@@ -21,11 +21,13 @@ class MonitoringCommandHandler(CommandHandler):
     def do_channels(self, arg: str) -> None:
         """
         Channel commands: list channels for one or more universes.
-        Usage: channels list [universe...]    # Default universe is 0
+        Usage: channels list [universe...]    # Default universe is 1
         Examples:
-            channels list              # Show channels for universe 0
-            channels list 1            # Show channels for universe 1
-            channels list 0 1 2        # Show channels for universes 0, 1, and 2
+            channels list              # Show channels for universe 1
+            channels list 0            # Show channels for universe 0 (Art-Net only)
+            channels list 1 2 3        # Show channels for universes 1, 2, and 3
+        Note: sACN (E1.31) universes are 1–63999. Art-Net supports universe 0.
+              Universe 0 is Art-Net-only in this application; universes 1+ are mergeable across protocols.
         """
         if not self.client:
             self.shell._append_output("[red]Not connected. Use 'connect' first.[/]" + "\n")
@@ -45,8 +47,8 @@ class MonitoringCommandHandler(CommandHandler):
 
         try:
             if command == "list":
-                # Parse universe arguments (default to [0])
-                universes = [0]
+                # Parse universe arguments (default to [1])
+                universes = [1]
                 if len(args) > 1:
                     # Parse one or more universe numbers
                     try:
@@ -66,10 +68,10 @@ class MonitoringCommandHandler(CommandHandler):
         """Show Artnet channels for the specified universe(s).
 
         Args:
-            universes: List of ArtNet universe numbers (default [0])
+            universes: List of ArtNet universe numbers (default [1])
         """
         if universes is None:
-            universes = [0]
+            universes = [1]
 
         try:
             # Fetch mappings and devices without caching for fresh IP data

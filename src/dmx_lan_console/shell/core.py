@@ -1033,11 +1033,11 @@ class ArtNetShell:
     def do_channels(self, arg: str) -> None:
         """
         Channel commands: list channels for one or more universes.
-        Usage: channels list [universe...]    # Default universe is 0
+        Usage: channels list [universe...]    # Default universe is 1
         Examples:
-            channels list              # Show channels for universe 0
-            channels list 1            # Show channels for universe 1
-            channels list 0 1 2        # Show channels for universes 0, 1, and 2
+            channels list              # Show channels for universe 1
+            channels list 0            # Show channels for universe 0 (Art-Net only)
+            channels list 1 2 3        # Show channels for universes 1, 2, and 3
         """
         return self.monitoring_handler.do_channels(arg)
 
@@ -1369,7 +1369,8 @@ class ArtNetShell:
             self._append_output("  1. [bold]devices list[/] - View all discovered Govee devices\n")
             self._append_output("     [dim]Shows device ID, IP, state, and capabilities[/]\n")
             self._append_output("  2. [bold]channels list[/] [universe] - Show ArtNet channel assignments\n")
-            self._append_output("     [dim]Default universe is 0. Example: channels list 1[/]\n")
+            self._append_output("     [dim]Default universe is 1. Example: channels list 2[/]\n")
+            self._append_output("     [dim]Note: Universe 0 is Art-Net-only; universes 1+ support E1.31/sACN[/]\n")
             self._append_output("  3. [bold]mappings list[/] - View current channel-to-device mappings\n")
             self._append_output("     [dim]Shows which channels control which device fields[/]\n")
             self._append_output("  4. [bold]mappings create[/] - Create new channel mappings\n")

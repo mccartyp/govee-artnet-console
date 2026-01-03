@@ -133,7 +133,7 @@ dmx-bridge> bookmark list
 
 # Use bookmarks in commands
 dmx-bridge> devices enable @kitchen
-dmx-bridge> mappings create --device-id @bedroom --universe 0 --template RGB
+dmx-bridge> mappings create --device-id @bedroom --universe 1 --template RGB
 ```
 
 **Bookmark commands:**
@@ -307,11 +307,17 @@ dmx-bridge> logs events --type health              # Filter health events only
 [2024-01-15 14:30:30] mapping_created
   Mapping ID: 123
   Device ID: AA:BB:CC:DD:EE:FF (Kitchen Light)
-  Universe: 0
+  Universe: 1
   Channel: 1-3
   Template: RGB
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+**Universe Default Information:**
+- Default universe for mappings and views is **universe 1**
+- sACN (E1.31) universes: 1–63999
+- Art-Net supports universe 0
+- Universe 0 is Art-Net-only in this application; universes 1+ are mergeable across protocols
 
 **Background Event Notifications:**
 While working in the shell, you'll see terse event notifications automatically:
@@ -516,7 +522,7 @@ dmx-bridge> bookmark add bedroom "11:22:33:44:55:66"
 
 # Use bookmarks in commands
 dmx-bridge> devices command @kitchen --on --brightness 255
-dmx-bridge> mappings create --device-id @bedroom --universe 0 --template RGB
+dmx-bridge> mappings create --device-id @bedroom --universe 1 --template RGB
 
 # Create aliases for common workflows
 dmx-bridge> alias status "monitor dashboard"
